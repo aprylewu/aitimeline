@@ -1,5 +1,7 @@
 import type { Conference } from "@/types/conference";
 
+// Keep each conference's milestones in chronological order.
+// Dates use YYYY-MM-DD strings and rely on the per-milestone timezone label.
 export const conferences: Conference[] = [
   {
     id: "colm-2026",
