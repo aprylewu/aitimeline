@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { addMonths, parseISO, subMonths } from "date-fns";
 import { ControlsBar } from "./controls-bar";
-import { ConferenceMetaColumn } from "./conference-meta-column";
 import { TimelineGrid } from "./timeline-grid";
 import { getDefaultVisibleRange } from "@/lib/timeline/date-range";
-import { filterConferences } from "@/lib/timeline/filtering";
+import { organizeConferenceSections } from "@/lib/timeline/sections";
 import type {
   Conference,
   ConferenceCategory,
@@ -19,16 +18,13 @@ interface TimelineBrowserProps {
 }
 
 const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
-  "abstract",
   "fullPaper",
-  "supplementary",
   "rebuttalStart",
   "rebuttalEnd",
   "notification",
   "cameraReady",
   "conferenceStart",
   "conferenceEnd",
-  "workshop",
 ];
 
 function toggleSetValue<T>(current: Set<T>, value: T) {
@@ -58,6 +54,7 @@ function getAllRange(conferences: Conference[]) {
 }
 
 export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<Set<ConferenceCategory>>(
     () => new Set(),
@@ -94,16 +91,22 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     });
   }
 
-  const visibleConferences = filterConferences({
+  const sections = organizeConferenceSections({
     conferences,
     query,
     categories,
     visibleMilestoneTypes,
     visibleRange,
+    now,
   });
+  const visibleConferenceCount = sections.active.length + sections.past.length;
 
   return (
-    <main className="min-h-screen bg-stone-50 text-neutral-900">
+    <main
+      data-testid="timeline-browser"
+      data-theme={theme}
+      className="timeline-browser min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)]"
+    >
       <ControlsBar
         query={query}
         onQueryChange={setQuery}
@@ -118,29 +121,42 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
           setVisibleMilestoneTypes((current) => toggleSetValue(current, value))
         }
         onPresetSelect={handlePresetSelect}
+        theme={theme}
+        onThemeToggle={() =>
+          setTheme((current) => (current === "light" ? "dark" : "light"))
+        }
       />
-      <section className="mx-auto max-w-7xl px-6 py-10">
-        <h1 className="text-4xl font-semibold tracking-tight">
-          Conference Timeline
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm text-neutral-600">
-          Compare full paper, rebuttal, and notification milestones across
-          active venues.
-        </p>
-        <div className="mt-8 space-y-3">
-          {visibleConferences.map((conference) => (
-            <article
-              key={conference.id}
-              className="grid gap-4 rounded-3xl border border-black/8 bg-white px-5 py-4 shadow-sm md:grid-cols-[minmax(0,320px)_1fr]"
-            >
-              <ConferenceMetaColumn conference={conference} />
-              <TimelineGrid
-                conferences={[conference]}
-                visibleRange={visibleRange}
-              />
-            </article>
-          ))}
+      <section className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+            Focus on the submission to decision chain
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
+            2026 Conference Timeline
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">
+            Shared gantt view for submission, rebuttal visibility, and final
+            decisions across active venues.
+          </p>
         </div>
+        <div
+          data-testid="timeline-surface"
+          className="timeline-shell overflow-x-auto rounded-[28px] border border-[var(--panel-border)]"
+        >
+          <TimelineGrid
+            sections={[
+              { id: "active", label: "Active", conferences: sections.active },
+              { id: "past", label: "Past", conferences: sections.past },
+            ]}
+            visibleRange={visibleRange}
+            now={now}
+          />
+        </div>
+        {visibleConferenceCount === 0 ? (
+          <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            No conferences match the current filters.
+          </div>
+        ) : null}
       </section>
     </main>
   );

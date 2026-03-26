@@ -13,6 +13,8 @@ interface ControlsBarProps {
   visibleMilestoneTypes: Set<MilestoneType>;
   onMilestoneToggle: (value: MilestoneType) => void;
   onPresetSelect: (preset: "3M" | "6M" | "12M" | "All") => void;
+  theme: "light" | "dark";
+  onThemeToggle: () => void;
 }
 
 const PRESETS = ["3M", "6M", "12M", "All"] as const;
@@ -39,16 +41,27 @@ export function ControlsBar({
   visibleMilestoneTypes,
   onMilestoneToggle,
   onPresetSelect,
+  theme,
+  onThemeToggle,
 }: ControlsBarProps) {
   return (
-    <div className="sticky top-0 z-10 border-b border-black/10 bg-white/90 px-6 py-4 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3">
-        <input
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search conferences"
-          className="min-w-72 flex-1 rounded-full border border-black/10 px-4 py-2 text-sm outline-none transition focus:border-black/30"
-        />
+    <div className="sticky top-0 z-20 border-b border-[var(--panel-border)] bg-[var(--controls-bg)] px-4 py-3 backdrop-blur-xl md:px-6">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <input
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search conferences"
+            className="min-w-64 flex-1 rounded-full border border-[var(--panel-border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
+          />
+          <button
+            type="button"
+            onClick={onThemeToggle}
+            className="cursor-pointer rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+          >
+            {theme === "light" ? "Dark mode" : "Light mode"}
+          </button>
+        </div>
         <div
           className="flex flex-wrap items-center gap-2"
           role="group"
@@ -59,7 +72,7 @@ export function ControlsBar({
               key={preset}
               type="button"
               onClick={() => onPresetSelect(preset)}
-              className="rounded-full border border-black/10 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-black/20 hover:text-black"
+              className="cursor-pointer rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-1.5 text-sm font-medium text-[var(--text-muted)] transition hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
             >
               {preset}
             </button>
@@ -79,10 +92,10 @@ export function ControlsBar({
                 type="button"
                 onClick={() => onCategoryToggle(category)}
                 aria-pressed={isActive}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   isActive
-                    ? "bg-neutral-900 text-white"
-                    : "border border-black/10 text-neutral-700 hover:border-black/20 hover:text-black"
+                    ? "bg-[var(--accent-primary)] text-white"
+                    : "border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 {category}
@@ -104,10 +117,10 @@ export function ControlsBar({
                 type="button"
                 onClick={() => onMilestoneToggle(milestoneType)}
                 aria-pressed={isActive}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   isActive
-                    ? "bg-stone-200 text-neutral-900"
-                    : "border border-black/10 text-neutral-500 hover:border-black/20 hover:text-black"
+                    ? "bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
+                    : "border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 {MILESTONE_LABELS[milestoneType]}
