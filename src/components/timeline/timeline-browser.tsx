@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addMonths, parseISO, subMonths } from "date-fns";
 import { ControlsBar } from "./controls-bar";
+import { ConferenceMetaColumn } from "./conference-meta-column";
 import { getDefaultVisibleRange } from "@/lib/timeline/date-range";
 import { filterConferences } from "@/lib/timeline/filtering";
 import type {
@@ -129,10 +130,12 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
           {visibleConferences.map((conference) => (
             <article
               key={conference.id}
-              className="rounded-3xl border border-black/8 bg-white px-5 py-4 shadow-sm"
+              className="grid gap-4 rounded-3xl border border-black/8 bg-white px-5 py-4 shadow-sm md:grid-cols-[minmax(0,320px)_1fr]"
             >
-              <p className="text-base font-semibold">{conference.shortName}</p>
-              <p className="mt-1 text-sm text-neutral-600">{conference.title}</p>
+              <ConferenceMetaColumn conference={conference} />
+              <div className="rounded-2xl bg-stone-100/80 px-4 py-3 text-sm text-neutral-500">
+                Timeline grid placeholder
+              </div>
             </article>
           ))}
         </div>
