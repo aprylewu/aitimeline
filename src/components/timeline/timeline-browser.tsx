@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addMonths, parseISO, subMonths } from "date-fns";
 import { ControlsBar } from "./controls-bar";
 import { ConferenceMetaColumn } from "./conference-meta-column";
+import { TimelineGrid } from "./timeline-grid";
 import { getDefaultVisibleRange } from "@/lib/timeline/date-range";
 import { filterConferences } from "@/lib/timeline/filtering";
 import type {
@@ -133,9 +134,10 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
               className="grid gap-4 rounded-3xl border border-black/8 bg-white px-5 py-4 shadow-sm md:grid-cols-[minmax(0,320px)_1fr]"
             >
               <ConferenceMetaColumn conference={conference} />
-              <div className="rounded-2xl bg-stone-100/80 px-4 py-3 text-sm text-neutral-500">
-                Timeline grid placeholder
-              </div>
+              <TimelineGrid
+                conferences={[conference]}
+                visibleRange={visibleRange}
+              />
             </article>
           ))}
         </div>

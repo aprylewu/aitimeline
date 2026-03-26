@@ -1,1 +1,61 @@
 @import "tailwindcss";
+
+:root {
+  --page-bg: #f5f3ee;
+  --panel-bg: rgba(255, 255, 255, 0.84);
+  --panel-border: rgba(15, 23, 42, 0.08);
+  --grid-line: rgba(15, 23, 42, 0.08);
+  --grid-glow: rgba(125, 148, 171, 0.18);
+}
+
+html {
+  background: linear-gradient(180deg, #fbfaf7 0%, var(--page-bg) 100%);
+}
+
+body {
+  min-height: 100vh;
+  color: #111827;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 38%),
+    linear-gradient(180deg, #faf8f4 0%, var(--page-bg) 100%);
+  font-family:
+    "SF Pro Display",
+    "Helvetica Neue",
+    "Segoe UI",
+    sans-serif;
+}
+
+.timeline-surface {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), var(--panel-bg));
+}
+
+.timeline-grid-bg {
+  background-image:
+    linear-gradient(90deg, transparent 0, transparent calc(10% - 1px), var(--grid-line) calc(10% - 1px), var(--grid-line) 10%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(245, 243, 238, 0.82));
+  background-size: 10% 100%, 100% 100%;
+}
+
+.timeline-marker {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.timeline-marker:hover,
+.timeline-marker:focus-visible {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 12px 32px var(--grid-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

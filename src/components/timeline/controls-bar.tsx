@@ -49,7 +49,11 @@ export function ControlsBar({
           placeholder="Search conferences"
           className="min-w-72 flex-1 rounded-full border border-black/10 px-4 py-2 text-sm outline-none transition focus:border-black/30"
         />
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Range presets"
+        >
           {PRESETS.map((preset) => (
             <button
               key={preset}
@@ -61,7 +65,11 @@ export function ControlsBar({
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Category filters"
+        >
           {availableCategories.map((category) => {
             const isActive = categories.has(category);
 
@@ -82,7 +90,11 @@ export function ControlsBar({
             );
           })}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Milestone filters"
+        >
           {availableMilestoneTypes.map((milestoneType) => {
             const isActive = visibleMilestoneTypes.has(milestoneType);
 

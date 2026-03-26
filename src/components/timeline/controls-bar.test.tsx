@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "./timeline-browser";
@@ -15,7 +15,9 @@ it("updates the visible rows when search and presets change", async () => {
 
   expect(screen.getByRole("button", { name: "AI" })).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /notification/i }),
+    within(
+      screen.getByRole("group", { name: /milestone filters/i }),
+    ).getByRole("button", { name: /notification/i }),
   ).toBeInTheDocument();
 
   await user.type(screen.getByPlaceholderText(/search conferences/i), "icml");
