@@ -1,58 +1,107 @@
-import { addMonths, subMonths } from "date-fns";
+import type {
+  ConferenceCategory,
+  MilestoneType,
+} from "@/types/conference";
 
 interface ControlsBarProps {
   query: string;
   onQueryChange: (value: string) => void;
-  visibleRange: { start: Date; end: Date };
-  onRangeChange: (value: { start: Date; end: Date }) => void;
+  availableCategories: ConferenceCategory[];
+  categories: Set<ConferenceCategory>;
+  onCategoryToggle: (value: ConferenceCategory) => void;
+  availableMilestoneTypes: MilestoneType[];
+  visibleMilestoneTypes: Set<MilestoneType>;
+  onMilestoneToggle: (value: MilestoneType) => void;
+  onPresetSelect: (preset: "3M" | "6M" | "12M" | "All") => void;
 }
 
 const PRESETS = ["3M", "6M", "12M", "All"] as const;
+const MILESTONE_LABELS: Record<MilestoneType, string> = {
+  abstract: "Abstract",
+  fullPaper: "Full paper",
+  supplementary: "Supplementary",
+  rebuttalStart: "Rebuttal start",
+  rebuttalEnd: "Rebuttal end",
+  notification: "Notification",
+  cameraReady: "Camera ready",
+  conferenceStart: "Conference start",
+  conferenceEnd: "Conference end",
+  workshop: "Workshop",
+};
 
 export function ControlsBar({
   query,
   onQueryChange,
-  visibleRange,
-  onRangeChange,
+  availableCategories,
+  categories,
+  onCategoryToggle,
+  availableMilestoneTypes,
+  visibleMilestoneTypes,
+  onMilestoneToggle,
+  onPresetSelect,
 }: ControlsBarProps) {
-  function handlePresetClick(preset: (typeof PRESETS)[number]) {
-    if (preset === "All") {
-      onRangeChange({
-        start: new Date("2025-01-01T00:00:00Z"),
-        end: new Date("2026-12-31T00:00:00Z"),
-      });
-      return;
-    }
-
-    const months = Number.parseInt(preset, 10);
-    const center = visibleRange.start;
-
-    onRangeChange({
-      start: subMonths(center, Math.floor(months / 3)),
-      end: addMonths(center, months),
-    });
-  }
-
   return (
     <div className="sticky top-0 z-10 border-b border-black/10 bg-white/90 px-6 py-4 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3">
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search conferences"
           className="min-w-72 flex-1 rounded-full border border-black/10 px-4 py-2 text-sm outline-none transition focus:border-black/30"
         />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {PRESETS.map((preset) => (
             <button
               key={preset}
               type="button"
-              onClick={() => handlePresetClick(preset)}
+              onClick={() => onPresetSelect(preset)}
               className="rounded-full border border-black/10 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-black/20 hover:text-black"
             >
               {preset}
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {availableCategories.map((category) => {
+            const isActive = categories.has(category);
+
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => onCategoryToggle(category)}
+                aria-pressed={isActive}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-neutral-900 text-white"
+                    : "border border-black/10 text-neutral-700 hover:border-black/20 hover:text-black"
+                }`}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {availableMilestoneTypes.map((milestoneType) => {
+            const isActive = visibleMilestoneTypes.has(milestoneType);
+
+            return (
+              <button
+                key={milestoneType}
+                type="button"
+                onClick={() => onMilestoneToggle(milestoneType)}
+                aria-pressed={isActive}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-stone-200 text-neutral-900"
+                    : "border border-black/10 text-neutral-500 hover:border-black/20 hover:text-black"
+                }`}
+              >
+                {MILESTONE_LABELS[milestoneType]}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
