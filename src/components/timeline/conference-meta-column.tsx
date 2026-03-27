@@ -19,10 +19,10 @@ export function ConferenceMetaColumn({
     return (
       <div className="flex w-full items-center justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-2 whitespace-nowrap">
-          <p className="conference-trigger-title text-[19px] leading-none font-semibold tracking-tight text-[var(--text-primary)]">
+          <p className="conference-trigger-title text-[21px] leading-none font-semibold tracking-tight text-[var(--text-primary)]">
             {conference.shortName}
           </p>
-          <p className="conference-trigger-year font-mono text-[12px] font-medium tracking-[0.04em] text-[var(--text-muted)]">
+          <p className="conference-trigger-year font-mono text-[13px] font-medium tracking-[0.04em] text-[var(--text-muted)]">
             {conference.year}
           </p>
         </div>

@@ -268,7 +268,7 @@ function ConferenceDetailStrip({
           target="_blank"
           rel="noreferrer noopener"
           tabIndex={expanded ? 0 : -1}
-          className="inline-flex shrink-0 items-center justify-center self-start rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-1.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset] transition hover:border-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
+          className="inline-flex shrink-0 items-center justify-center self-start rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
         >
           Call For Papers
         </a>

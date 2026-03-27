@@ -59,7 +59,7 @@ it("renders a separate today label and a compact inline detail strip on click", 
   expect(screen.getByTestId("today-label")).toHaveTextContent("Today");
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(detailRow).toHaveAttribute("aria-hidden", "true");
-  expect(within(trigger).getByText("ACL")).toHaveClass("text-[19px]");
+  expect(within(trigger).getByText("ACL")).toHaveClass("text-[21px]");
   expect(within(trigger).getByText("2026")).toHaveClass("font-mono");
 
   await user.click(trigger);

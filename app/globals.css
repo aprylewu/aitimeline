@@ -236,14 +236,8 @@ body {
   letter-spacing: 0.18em;
 }
 
-.conference-trigger[aria-expanded="true"] .conference-trigger-title,
 .conference-trigger[aria-expanded="true"] .conference-trigger-chevron {
   color: var(--accent-primary);
-}
-
-.conference-trigger[aria-expanded="true"] .conference-trigger-year {
-  color: var(--text-primary);
-  letter-spacing: 0.18em;
 }
 
 .conference-inline-row {
