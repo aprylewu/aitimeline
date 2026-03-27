@@ -410,7 +410,10 @@ function DesktopControls(props: ControlsBarProps) {
         isDesktopCollapsed ? "w-[78px]" : "w-[336px]"
       }`}
     >
-      <div className="timeline-menu-rail flex h-full w-[78px] shrink-0 flex-col items-center justify-between border-r border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--surface-bg)_92%,transparent)] px-3 py-4">
+      <div
+        data-testid="timeline-menu-rail"
+        className="timeline-menu-rail flex h-full w-[78px] shrink-0 flex-col items-center justify-between border-r border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--surface-bg)_92%,transparent)] px-3 py-4"
+      >
         <button
           type="button"
           aria-label={isDesktopCollapsed ? "Expand menu" : "Collapse menu"}
@@ -420,18 +423,14 @@ function DesktopControls(props: ControlsBarProps) {
           {isDesktopCollapsed ? <MenuIcon /> : <CollapseIcon />}
         </button>
 
-        {isDesktopCollapsed ? (
-          <button
-            type="button"
-            onClick={onThemeToggle}
-            aria-label={theme === "light" ? "Dark mode" : "Light mode"}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-          >
-            <ThemeIcon theme={theme} />
-          </button>
-        ) : (
-          <div className="h-11 w-11" aria-hidden="true" />
-        )}
+        <button
+          type="button"
+          onClick={onThemeToggle}
+          aria-label={theme === "light" ? "Dark mode" : "Light mode"}
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+        >
+          <ThemeIcon theme={theme} />
+        </button>
       </div>
 
       <div
@@ -457,17 +456,6 @@ function DesktopControls(props: ControlsBarProps) {
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-5">
             <FilterSections {...props} />
-          </div>
-
-          <div className="border-t border-[var(--panel-border)] pt-4">
-            <button
-              type="button"
-              onClick={onThemeToggle}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-            >
-              <ThemeIcon theme={theme} />
-              {theme === "light" ? "Dark mode" : "Light mode"}
-            </button>
           </div>
         </div>
       </div>

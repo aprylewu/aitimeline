@@ -78,3 +78,21 @@ it("reopens the mobile filter controls from the compact bar", async () => {
     ).getByRole("button", { name: /notification/i }),
   ).toBeInTheDocument();
 });
+
+it("keeps the desktop theme toggle pinned in the rail while expanded", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  const rail = screen.getByTestId("timeline-menu-rail");
+
+  expect(
+    within(rail).getByRole("button", { name: /dark mode/i }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByTestId("timeline-menu-drawer-theme-toggle"),
+  ).not.toBeInTheDocument();
+});

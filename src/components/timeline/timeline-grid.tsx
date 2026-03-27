@@ -135,6 +135,14 @@ function getMonthCells(range: { start: Date; end: Date }): MonthCell[] {
   });
 }
 
+function getFirstFullyVisibleMonthStart(monthCells: MonthCell[]) {
+  const firstVisibleMonthCell = monthCells.find((monthCell) => monthCell.labelVisible);
+
+  return firstVisibleMonthCell
+    ? parseISO(`${firstVisibleMonthCell.key}-01`)
+    : null;
+}
+
 function toggleExpandedConference(current: Set<string>, conferenceId: string) {
   const next = new Set(current);
 
@@ -374,6 +382,7 @@ export function TimelineGrid({
     {},
   );
   const monthCells = getMonthCells(visibleRange);
+  const firstFullyVisibleMonthStart = getFirstFullyVisibleMonthStart(monthCells);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
   const todayLeft = getPositionPercent(now, visibleRange);
   const todayDateLabel = format(now, "MMM d, yyyy");
@@ -583,9 +592,13 @@ export function TimelineGrid({
                         );
                       })}
                       {conference.milestones.map((milestone) => {
+                        const milestoneStart = parseISO(milestone.dateStart);
+
                         if (
+                          (firstFullyVisibleMonthStart &&
+                            isBefore(milestoneStart, firstFullyVisibleMonthStart)) ||
                           !isWithinVisibleRange(
-                            parseISO(milestone.dateStart),
+                            milestoneStart,
                             visibleRange,
                           )
                         ) {
@@ -593,7 +606,7 @@ export function TimelineGrid({
                         }
 
                         const left = getPositionPercent(
-                          parseISO(milestone.dateStart),
+                          milestoneStart,
                           visibleRange,
                         );
                         const tone = getMilestoneTone(milestone.type);

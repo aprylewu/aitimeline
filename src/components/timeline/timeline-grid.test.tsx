@@ -269,6 +269,21 @@ it("does not render milestone markers that fall outside the visible range", () =
   expect(screen.getByLabelText("Notification")).toBeInTheDocument();
 });
 
+it("does not render milestone markers from a partially clipped leading month", () => {
+  renderTimelineGridWithRange({
+    visibleConferences: [icmlConference],
+    visibleRange: {
+      start: new Date("2026-01-27T00:00:00Z"),
+      end: new Date("2026-07-27T00:00:00Z"),
+    },
+  });
+
+  expect(screen.queryByText(/^Jan$/)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Full paper")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Abstract")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Notification")).toBeInTheDocument();
+});
+
 it("shows an AoE countdown and keeps the tooltip above the today overlay", async () => {
   const user = userEvent.setup();
 
@@ -297,7 +312,8 @@ it("shows an AoE countdown and keeps the tooltip above the today overlay", async
   expect(tooltip).toHaveTextContent("T-6d 11h");
   expect(tooltip).toHaveTextContent("Your time");
   expect(tooltip).toHaveTextContent("GMT+8");
-  expect(tooltip).toHaveClass("z-30");
+  expect(tooltip).toHaveClass("z-40");
+  expect(tooltip).toHaveClass("bg-[var(--tooltip-bg-solid)]");
   expect(screen.getByTestId("today-overlay")).toHaveClass("z-0");
 });
 
