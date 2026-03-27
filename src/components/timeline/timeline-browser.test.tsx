@@ -28,7 +28,7 @@ it("renders one shared gantt surface and supports dark mode", async () => {
   expect(browser).toHaveAttribute("data-theme", "dark");
 });
 
-it("shows active and past sections, a today marker, and hover details", async () => {
+it("shows active and past sections, a today marker, and inline details on click", async () => {
   const user = userEvent.setup();
 
   render(
@@ -45,8 +45,14 @@ it("shows active and past sections, a today marker, and hover details", async ()
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
   expect(screen.queryByText("NeurIPS")).not.toBeInTheDocument();
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
+  expect(
+    screen.queryByTestId("conference-detail-row-colm-2026"),
+  ).not.toBeInTheDocument();
 
-  await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
+  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
 
+  expect(
+    screen.getByTestId("conference-detail-row-colm-2026"),
+  ).toBeInTheDocument();
   expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
 });

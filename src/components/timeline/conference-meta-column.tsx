@@ -3,11 +3,13 @@ import type { Conference } from "@/types/conference";
 interface ConferenceMetaColumnProps {
   conference: Conference;
   compact?: boolean;
+  expanded?: boolean;
 }
 
 export function ConferenceMetaColumn({
   conference,
   compact = false,
+  expanded = false,
 }: ConferenceMetaColumnProps) {
   const rankingEntries = Object.entries(conference.rankings).filter(
     ([, value]) => value,
@@ -15,13 +17,31 @@ export function ConferenceMetaColumn({
 
   if (compact) {
     return (
-      <div className="min-w-0">
-        <p className="conference-trigger-title text-[11px] font-semibold tracking-[0.04em] text-[var(--text-primary)]">
-          {conference.shortName}
-        </p>
-        <p className="conference-trigger-year mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-          {conference.year}
-        </p>
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="conference-trigger-title text-[11px] font-semibold tracking-[0.04em] text-[var(--text-primary)]">
+            {conference.shortName}
+          </p>
+          <p className="conference-trigger-year mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {conference.year}
+          </p>
+        </div>
+        <span
+          aria-hidden="true"
+          className={`conference-trigger-chevron inline-flex shrink-0 items-center justify-center text-[var(--text-muted)] transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m3.5 6 4.5 4.5L12.5 6" />
+          </svg>
+        </span>
       </div>
     );
   }
