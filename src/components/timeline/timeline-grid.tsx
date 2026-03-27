@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   eachMonthOfInterval,
   format,
@@ -318,12 +318,32 @@ export function TimelineGrid({
 }: TimelineGridProps) {
   const [hoveredMilestone, setHoveredMilestone] =
     useState<HoveredMilestone | null>(null);
+  const [hoveredConferenceId, setHoveredConferenceId] = useState<string | null>(
+    null,
+  );
+  const [hoverCooldownConferenceId, setHoverCooldownConferenceId] = useState<
+    string | null
+  >(null);
   const [expandedConferenceIds, setExpandedConferenceIds] = useState<Set<string>>(
     () => new Set(),
+  );
+  const hoverRestoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const conferenceTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>(
+    {},
   );
   const ticks = getTickDates(visibleRange);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
   const todayLeft = getPositionPercent(now, visibleRange);
+
+  useEffect(() => {
+    return () => {
+      if (hoverRestoreTimeoutRef.current) {
+        clearTimeout(hoverRestoreTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="relative min-w-[980px]">
@@ -377,26 +397,69 @@ export function TimelineGrid({
                 const showConferenceDetails = expandedConferenceIds.has(
                   conference.id,
                 );
+                const showHoverCooldown =
+                  hoverCooldownConferenceId === conference.id;
+                const showTriggerHover = hoveredConferenceId === conference.id;
 
                 return (
                   <Fragment key={conference.id}>
                     <div className="timeline-meta-cell relative flex min-h-[56px] items-center justify-center border-b border-[var(--panel-border)] px-3 py-1.5">
                       <button
+                        ref={(node) => {
+                          conferenceTriggerRefs.current[conference.id] = node;
+                        }}
                         type="button"
                         data-testid={`conference-trigger-${conference.id}`}
                         aria-expanded={showConferenceDetails}
                         aria-controls={`conference-detail-row-${conference.id}`}
-                        onClick={() =>
+                        onMouseEnter={() => {
+                          if (showHoverCooldown) {
+                            return;
+                          }
+
+                          setHoveredConferenceId(conference.id);
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredConferenceId((current) =>
+                            current === conference.id ? null : current,
+                          );
+                        }}
+                        onClick={() => {
                           setExpandedConferenceIds((current) =>
                             toggleExpandedConference(current, conference.id),
-                          )
-                        }
-                        className={`conference-trigger ${showConferenceDetails ? "conference-trigger--expanded" : "conference-trigger--collapsed"} flex h-full w-full items-center justify-center text-center outline-none`}
+                          );
+                          setHoveredConferenceId((current) =>
+                            current === conference.id ? null : current,
+                          );
+                          setHoverCooldownConferenceId(conference.id);
+
+                          if (hoverRestoreTimeoutRef.current) {
+                            clearTimeout(hoverRestoreTimeoutRef.current);
+                          }
+
+                          hoverRestoreTimeoutRef.current = setTimeout(() => {
+                            setHoverCooldownConferenceId((current) =>
+                              current === conference.id ? null : current,
+                            );
+
+                            if (
+                              conferenceTriggerRefs.current[
+                                conference.id
+                              ]?.matches(":hover")
+                            ) {
+                              setHoveredConferenceId(conference.id);
+                            }
+
+                            hoverRestoreTimeoutRef.current = null;
+                          }, 180);
+                        }}
+                        className={`conference-trigger ${showConferenceDetails ? "conference-trigger--expanded" : "conference-trigger--collapsed"} ${showHoverCooldown ? "conference-trigger--hover-cooldown" : ""} ${showTriggerHover ? "conference-trigger--hovered -translate-y-px" : ""} flex h-full w-full items-center justify-center text-center outline-none`}
                       >
                         <ConferenceMetaColumn
                           conference={conference}
                           compact
                           expanded={showConferenceDetails}
+                          hovered={showTriggerHover}
                         />
                       </button>
                     </div>

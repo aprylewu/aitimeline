@@ -4,12 +4,14 @@ interface ConferenceMetaColumnProps {
   conference: Conference;
   compact?: boolean;
   expanded?: boolean;
+  hovered?: boolean;
 }
 
 export function ConferenceMetaColumn({
   conference,
   compact = false,
   expanded = false,
+  hovered = false,
 }: ConferenceMetaColumnProps) {
   const rankingEntries = Object.entries(conference.rankings).filter(
     ([, value]) => value,
@@ -20,16 +22,20 @@ export function ConferenceMetaColumn({
       <div className="flex w-full items-center justify-center">
         <div className="flex items-center justify-center gap-2.5 text-center">
           <div className="flex min-w-0 items-baseline justify-center gap-2 whitespace-nowrap">
-            <p className="conference-trigger-title text-[24px] leading-none font-semibold tracking-tight text-[var(--text-primary)]">
+            <p
+              className={`conference-trigger-title text-[24px] leading-none font-semibold tracking-tight transition-colors duration-150 ${hovered ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}
+            >
               {conference.shortName}
             </p>
-            <p className="conference-trigger-year font-mono text-[14px] leading-none font-medium tracking-[0.06em] text-[var(--text-muted)]">
+            <p
+              className={`conference-trigger-year font-mono text-[14px] leading-none font-medium transition-[color,letter-spacing] duration-150 ${hovered ? "tracking-[0.14em] text-[var(--text-primary)]" : "tracking-[0.06em] text-[var(--text-muted)]"}`}
+            >
               {conference.year}
             </p>
           </div>
           <span
             aria-hidden="true"
-            className={`conference-trigger-chevron inline-flex shrink-0 items-center justify-center text-[var(--text-muted)] transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+            className={`conference-trigger-chevron inline-flex shrink-0 items-center justify-center transition-[color,transform] duration-200 ${hovered ? "text-[var(--accent-primary)]" : "text-[var(--text-muted)]"} ${expanded ? "rotate-180" : ""}`}
           >
             <svg
               viewBox="0 0 16 16"

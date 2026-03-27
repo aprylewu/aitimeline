@@ -228,23 +228,6 @@ body {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
-.conference-trigger--collapsed:hover {
-  transform: translateY(-1px);
-}
-
-.conference-trigger--collapsed:hover .conference-trigger-title {
-  color: var(--accent-primary);
-}
-
-.conference-trigger--collapsed:hover .conference-trigger-year {
-  color: var(--text-primary);
-  letter-spacing: 0.14em;
-}
-
-.conference-trigger--collapsed:hover .conference-trigger-chevron {
-  color: var(--accent-primary);
-}
-
 .conference-inline-row {
   will-change: grid-template-rows, opacity, padding;
 }
