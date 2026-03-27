@@ -59,13 +59,15 @@ it("renders a separate today label and a compact inline detail strip on click", 
   expect(screen.getByTestId("today-label")).toHaveTextContent("Today");
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(detailRow).toHaveAttribute("aria-hidden", "true");
-  expect(within(trigger).getByText("ACL")).toBeInTheDocument();
-  expect(within(trigger).getByText("2026")).toBeInTheDocument();
+  expect(within(trigger).getByText("ACL")).toHaveClass("text-[19px]");
+  expect(within(trigger).getByText("2026")).toHaveClass("font-mono");
 
   await user.click(trigger);
 
   expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(detailRow).toHaveAttribute("aria-hidden", "false");
+  expect(within(detailRow).queryByText(/^ACL$/)).not.toBeInTheDocument();
+  expect(within(detailRow).queryByText(/^2026$/)).not.toBeInTheDocument();
   expect(
     within(detailRow).getByText(
       /Annual Meeting of the Association for Computational Linguistics/i,
@@ -80,6 +82,18 @@ it("renders a separate today label and a compact inline detail strip on click", 
   expect(detailRow).toHaveTextContent(/core\s+A\*/i);
   expect(detailRow).toHaveTextContent(/thcpl\s+A/i);
   expect(within(detailRow).getByText(/^AI$/i)).toBeInTheDocument();
+  expect(within(detailRow).getByTestId("conference-detail-title-acl-2026")).toHaveClass(
+    "text-[13px]",
+  );
+  expect(
+    within(detailRow).getByTestId("conference-detail-summary-acl-2026"),
+  ).toHaveClass("text-[12px]");
+  expect(
+    within(detailRow).getByRole("link", { name: /call for papers/i }),
+  ).toHaveClass("rounded-full");
+  expect(
+    within(detailRow).getByRole("link", { name: /call for papers/i }),
+  ).toHaveClass("border");
   expect(
     within(detailRow).getByRole("link", { name: /call for papers/i }),
   ).toHaveAttribute("href", expect.stringContaining("aclweb.org"));

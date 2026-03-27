@@ -228,10 +228,16 @@ function ConferenceDetailStrip({
     <div className="conference-inline-strip flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-6">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[13px] font-medium leading-5 text-[var(--text-primary)]">
+          <span
+            data-testid={`conference-detail-title-${conference.id}`}
+            className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
+          >
             {conference.title}
           </span>
-          <span className="text-[12px] leading-5 text-[var(--text-muted)]">
+          <span
+            data-testid={`conference-detail-summary-${conference.id}`}
+            className="text-[12px] leading-5 text-[var(--text-muted)]"
+          >
             {getConferenceSummary(conference)}
           </span>
         </div>
@@ -262,7 +268,7 @@ function ConferenceDetailStrip({
           target="_blank"
           rel="noreferrer noopener"
           tabIndex={expanded ? 0 : -1}
-          className="inline-flex shrink-0 items-center justify-center self-start rounded-full bg-[var(--surface-bg)] px-4 py-1.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] transition hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+          className="inline-flex shrink-0 items-center justify-center self-start rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-1.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset] transition hover:border-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
         >
           Call For Papers
         </a>
