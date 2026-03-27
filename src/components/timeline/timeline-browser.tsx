@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { addMonths, parseISO, subMonths } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
 import { ControlsBar } from "./controls-bar";
 import { TimelineGrid } from "./timeline-grid";
-import { getDefaultVisibleRange } from "@/lib/timeline/date-range";
+import { getDefaultVisibleRange, getPresetVisibleRange } from "@/lib/timeline/date-range";
+import { getMilestoneRange, resolveViewerTimeZone } from "@/lib/timeline/milestone-time";
 import { organizeConferenceSections } from "@/lib/timeline/sections";
 import type {
   Conference,
@@ -65,11 +65,14 @@ function toggleSetValue<T>(current: Set<T>, value: T) {
   return next;
 }
 
-function getAllRange(conferences: Conference[]) {
+function getAllRange(
+  conferences: Conference[],
+  viewerTimeZone?: string,
+) {
   const points = conferences.flatMap((conference) =>
     conference.milestones.flatMap((milestone) => [
-      parseISO(milestone.dateStart),
-      parseISO(milestone.dateEnd ?? milestone.dateStart),
+      getMilestoneRange(milestone, viewerTimeZone).start,
+      getMilestoneRange(milestone, viewerTimeZone).end,
     ]),
   );
 
@@ -84,8 +87,13 @@ export function TimelineBrowser({
   now,
   viewerTimeZone,
 }: TimelineBrowserProps) {
+  const initialViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
+  const [timelineNow, setTimelineNow] = useState(now);
+  const [resolvedViewerTimeZone, setResolvedViewerTimeZone] = useState(
+    initialViewerTimeZone,
+  );
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isMobileMenuCompact, setIsMobileMenuCompact] = useState(false);
   const [isDesktopMenuCollapsed, setIsDesktopMenuCollapsed] = useState(false);
@@ -94,8 +102,15 @@ export function TimelineBrowser({
   const [categories, setCategories] = useState<Set<ConferenceCategory>>(
     () => new Set(),
   );
-  const [visibleRange, setVisibleRange] = useState(() =>
-    getDefaultVisibleRange(now),
+  const [manualVisibleRange, setManualVisibleRange] = useState<{
+    end: Date;
+    start: Date;
+  } | null>(null);
+  const visibleRange = useMemo(
+    () =>
+      manualVisibleRange ??
+      getDefaultVisibleRange(timelineNow, resolvedViewerTimeZone),
+    [manualVisibleRange, resolvedViewerTimeZone, timelineNow],
   );
   const [visibleMilestoneTypes, setVisibleMilestoneTypes] = useState(
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
@@ -110,6 +125,21 @@ export function TimelineBrowser({
       conference.milestones.some((milestone) => milestone.type === type),
     ),
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const syncFrame = window.requestAnimationFrame(() => {
+      setTimelineNow(new Date());
+      setResolvedViewerTimeZone(resolveViewerTimeZone());
+    });
+
+    return () => {
+      window.cancelAnimationFrame(syncFrame);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -216,17 +246,14 @@ export function TimelineBrowser({
 
   function handlePresetSelect(preset: "3M" | "6M" | "12M" | "All") {
     if (preset === "All") {
-      setVisibleRange(getAllRange(conferences));
+      setManualVisibleRange(getAllRange(conferences, resolvedViewerTimeZone));
       return;
     }
 
     const months = Number.parseInt(preset, 10);
-    const monthsBack = Math.max(1, Math.floor(months / 3));
-
-    setVisibleRange({
-      start: subMonths(now, monthsBack),
-      end: addMonths(now, months - monthsBack),
-    });
+    setManualVisibleRange(
+      getPresetVisibleRange(timelineNow, resolvedViewerTimeZone, months),
+    );
   }
 
   const sections = organizeConferenceSections({
@@ -235,7 +262,8 @@ export function TimelineBrowser({
     categories,
     visibleMilestoneTypes,
     visibleRange,
-    now,
+    viewerTimeZone: resolvedViewerTimeZone,
+    now: timelineNow,
   });
   const visibleConferenceCount = sections.active.length + sections.past.length;
 
@@ -305,8 +333,8 @@ export function TimelineBrowser({
                   { id: "past", label: "Past", conferences: sections.past },
                 ]}
                 visibleRange={visibleRange}
-                now={now}
-                viewerTimeZone={viewerTimeZone}
+                now={timelineNow}
+                viewerTimeZone={resolvedViewerTimeZone}
               />
             </div>
             {visibleConferenceCount === 0 ? (

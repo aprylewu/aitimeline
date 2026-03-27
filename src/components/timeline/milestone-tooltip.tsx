@@ -3,6 +3,7 @@ import type { Conference, Milestone } from "@/types/conference";
 import {
   formatCountdown,
   formatMilestoneDateLabel,
+  formatMilestoneSourceDateLabel,
   getMilestoneInstant,
 } from "@/lib/timeline/milestone-time";
 
@@ -55,6 +56,9 @@ export function MilestoneTooltip({
       </p>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
         {formatMilestoneDateLabel(milestone, viewerTimeZone)}
+      </p>
+      <p className="mt-1 text-xs text-[var(--text-muted)]">
+        {formatMilestoneSourceDateLabel(milestone, viewerTimeZone)}
       </p>
       <p className="mt-1 text-xs font-semibold text-[var(--accent-secondary)]">
         {countdown}

@@ -1,5 +1,6 @@
-import { endOfDay, isBefore, parseISO } from "date-fns";
+import { isBefore } from "date-fns";
 import { filterConferences } from "./filtering";
+import { getMilestoneInstant } from "./milestone-time";
 import type {
   Conference,
   ConferenceCategory,
@@ -16,6 +17,7 @@ interface OrganizeConferenceSectionsArgs {
     start: Date;
     end: Date;
   };
+  viewerTimeZone?: string;
   now: Date;
 }
 
@@ -23,13 +25,18 @@ function findMilestone(conference: Conference, type: MilestoneType) {
   return conference.milestones.find((milestone) => milestone.type === type);
 }
 
-function getConferenceSortTime(conference: Conference) {
+function getConferenceSortTime(
+  conference: Conference,
+  viewerTimeZone?: string,
+) {
   const sortMilestone =
     findMilestone(conference, "abstract") ??
     findMilestone(conference, "fullPaper") ??
     conference.milestones[0];
 
-  return sortMilestone ? parseISO(sortMilestone.dateStart).getTime() : Number.MAX_SAFE_INTEGER;
+  return sortMilestone
+    ? getMilestoneInstant(sortMilestone, viewerTimeZone).getTime()
+    : Number.MAX_SAFE_INTEGER;
 }
 
 function getDecisionMilestone(conference: Conference): Milestone | undefined {
@@ -42,14 +49,18 @@ function hasRenderablePrimaryPath(conference: Conference) {
   );
 }
 
-function isConferencePast(conference: Conference, now: Date) {
+function isConferencePast(
+  conference: Conference,
+  now: Date,
+  viewerTimeZone?: string,
+) {
   const decisionMilestone = getDecisionMilestone(conference);
 
   if (!decisionMilestone) {
     return false;
   }
 
-  return isBefore(endOfDay(parseISO(decisionMilestone.dateStart)), now);
+  return isBefore(getMilestoneInstant(decisionMilestone, viewerTimeZone), now);
 }
 
 export function organizeConferenceSections({
@@ -58,6 +69,7 @@ export function organizeConferenceSections({
   categories,
   visibleMilestoneTypes,
   visibleRange,
+  viewerTimeZone,
   now,
 }: OrganizeConferenceSectionsArgs) {
   const conferenceLookup = new Map(
@@ -70,6 +82,7 @@ export function organizeConferenceSections({
     categories,
     visibleMilestoneTypes,
     visibleRange,
+    viewerTimeZone,
   })
     .filter((conference) => {
       const sourceConference = conferenceLookup.get(conference.id) ?? conference;
@@ -80,7 +93,8 @@ export function organizeConferenceSections({
       const rightSource = conferenceLookup.get(right.id) ?? right;
 
       return (
-        getConferenceSortTime(leftSource) - getConferenceSortTime(rightSource)
+        getConferenceSortTime(leftSource, viewerTimeZone) -
+        getConferenceSortTime(rightSource, viewerTimeZone)
       );
     });
 
@@ -88,7 +102,7 @@ export function organizeConferenceSections({
     (sections, conference) => {
       const sourceConference = conferenceLookup.get(conference.id) ?? conference;
 
-      if (isConferencePast(sourceConference, now)) {
+      if (isConferencePast(sourceConference, now, viewerTimeZone)) {
         sections.past.push(conference);
       } else {
         sections.active.push(conference);

@@ -21,4 +21,21 @@ describe("filterConferences", () => {
       result[0]?.milestones.every((item) => item.type !== "cameraReady"),
     ).toBe(true);
   });
+
+  it("includes AoE milestones when their projected viewer-local instant falls inside the visible range", () => {
+    const result = filterConferences({
+      conferences,
+      query: "colm",
+      categories: new Set(["AI"]),
+      visibleMilestoneTypes: new Set(["fullPaper"]),
+      visibleRange: {
+        start: new Date("2026-03-31T16:00:00.000Z"),
+        end: new Date("2026-04-30T15:59:59.999Z"),
+      },
+      viewerTimeZone: "Asia/Shanghai",
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.shortName).toBe("CoLM");
+  });
 });

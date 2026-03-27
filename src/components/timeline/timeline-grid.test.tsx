@@ -60,6 +60,10 @@ function renderTimelineGridWithRange(args: {
   );
 }
 
+function getLeftPercent(node: HTMLElement) {
+  return Number.parseFloat(node.style.left.replace("%", ""));
+}
+
 it("renders a continuous primary path bar", () => {
   renderTimelineGrid([colmConference]);
 
@@ -300,6 +304,31 @@ it("clips the primary path to the first fully visible month boundary", () => {
   expect(path.style.left).toBe(febCell.style.left);
 });
 
+it("projects AoE milestones onto the viewer-local timeline axis", () => {
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: [colmConference],
+        },
+      ]}
+      visibleRange={{
+        start: new Date("2026-01-01T00:00:00Z"),
+        end: new Date("2026-12-31T00:00:00Z"),
+      }}
+      now={new Date("2026-03-26T00:00:00Z")}
+      viewerTimeZone="Asia/Shanghai"
+    />,
+  );
+
+  const fullPaperMarker = screen.getByLabelText("Full paper");
+  const aprilCell = screen.getByTestId("axis-month-cell-2026-04");
+
+  expect(getLeftPercent(fullPaperMarker)).toBeGreaterThan(getLeftPercent(aprilCell));
+});
+
 it("shows an AoE countdown and keeps the tooltip above the today overlay", async () => {
   const user = userEvent.setup();
 
@@ -328,6 +357,7 @@ it("shows an AoE countdown and keeps the tooltip above the today overlay", async
   expect(tooltip).toHaveTextContent("T-6d 11h");
   expect(tooltip).toHaveTextContent("Your time");
   expect(tooltip).toHaveTextContent("GMT+8");
+  expect(tooltip).toHaveTextContent("AoE");
   expect(tooltip).toHaveClass("z-40");
   expect(tooltip).toHaveClass("bg-[var(--tooltip-bg-solid)]");
   expect(screen.getByTestId("today-overlay")).toHaveClass("z-[1]");

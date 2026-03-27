@@ -2,20 +2,23 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
-  addMonths,
-  eachMonthOfInterval,
-  endOfDay,
-  endOfMonth,
   format,
   isAfter,
   isBefore,
   parseISO,
-  startOfDay,
-  startOfMonth,
 } from "date-fns";
 import { ConferenceMetaColumn } from "./conference-meta-column";
 import { MilestoneTooltip } from "./milestone-tooltip";
 import { getPrimaryPathTypes } from "@/lib/timeline/key-path";
+import {
+  addMonthsInTimeZone,
+  formatCalendarDateInTimeZone,
+  getMilestoneInstant,
+  getMonthKey,
+  getMonthLabel,
+  getZonedMonthStart,
+  resolveViewerTimeZone,
+} from "@/lib/timeline/milestone-time";
 import { getPositionPercent } from "@/lib/timeline/positioning";
 import type { Conference, Milestone, MilestoneType } from "@/types/conference";
 
@@ -39,18 +42,20 @@ interface HoveredMilestone {
 }
 
 interface RangeSegment {
-  end: string;
+  end: Milestone;
   key: string;
-  start: string;
+  start: Milestone;
   tone: TimelineTone;
   top: string;
 }
 
 interface MonthCell {
+  end: Date;
   key: string;
   label: string;
   labelVisible: boolean;
   left: number;
+  start: Date;
   width: number;
 }
 
@@ -89,8 +94,8 @@ function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
     rebuttalStart && rebuttalEnd
       ? {
           key: "rebuttal",
-          start: rebuttalStart.dateStart,
-          end: rebuttalEnd.dateStart,
+          start: rebuttalStart,
+          end: rebuttalEnd,
           tone: "rebuttal",
           top: "top-[22px]",
         }
@@ -98,8 +103,8 @@ function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
     conferenceStart && conferenceEnd
       ? {
           key: "conference",
-          start: conferenceStart.dateStart,
-          end: conferenceEnd.dateStart,
+          start: conferenceStart,
+          end: conferenceEnd,
           tone: "conference",
           top: "top-[22px]",
         }
@@ -107,19 +112,27 @@ function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
   ].filter(Boolean) as RangeSegment[];
 }
 
-function getTickDates(range: { start: Date; end: Date }) {
-  return eachMonthOfInterval({
-    start: startOfMonth(range.start),
-    end: range.end,
-  });
+function getTickDates(
+  range: { start: Date; end: Date },
+  viewerTimeZone: string,
+) {
+  const dates: Date[] = [];
+  let current = getZonedMonthStart(range.start, viewerTimeZone);
+
+  while (current.getTime() <= range.end.getTime()) {
+    dates.push(current);
+    current = addMonthsInTimeZone(current, 1, viewerTimeZone);
+  }
+
+  return dates;
 }
 
-function getMonthCells(range: { start: Date; end: Date }): MonthCell[] {
-  const visibleStartDay = startOfDay(range.start).getTime();
-  const visibleEndDay = endOfDay(range.end).getTime();
-
-  return getTickDates(range).map((monthStart) => {
-    const nextMonthStart = addMonths(monthStart, 1);
+function getMonthCells(
+  range: { start: Date; end: Date },
+  viewerTimeZone: string,
+): MonthCell[] {
+  return getTickDates(range, viewerTimeZone).map((monthStart) => {
+    const nextMonthStart = addMonthsInTimeZone(monthStart, 1, viewerTimeZone);
     const cellStart =
       monthStart.getTime() < range.start.getTime() ? range.start : monthStart;
     const cellEnd =
@@ -127,25 +140,19 @@ function getMonthCells(range: { start: Date; end: Date }): MonthCell[] {
     const left = getPositionPercent(cellStart, range);
     const width = Math.max(0, getPositionPercent(cellEnd, range) - left);
     const labelVisible =
-      monthStart.getTime() >= visibleStartDay &&
-      endOfMonth(monthStart).getTime() <= visibleEndDay;
+      monthStart.getTime() >= range.start.getTime() &&
+      nextMonthStart.getTime() <= range.end.getTime();
 
     return {
-      key: format(monthStart, "yyyy-MM"),
-      label: format(monthStart, "MMM"),
+      key: getMonthKey(monthStart, viewerTimeZone),
+      label: getMonthLabel(monthStart, viewerTimeZone),
       labelVisible,
       left,
+      start: monthStart,
+      end: nextMonthStart,
       width,
     };
   });
-}
-
-function getFirstFullyVisibleMonthStart(monthCells: MonthCell[]) {
-  const firstVisibleMonthCell = monthCells.find((monthCell) => monthCell.labelVisible);
-
-  return firstVisibleMonthCell
-    ? parseISO(`${firstVisibleMonthCell.key}-01`)
-    : null;
 }
 
 function getRenderWindow(
@@ -161,14 +168,9 @@ function getRenderWindow(
     };
   }
 
-  const firstMonthStart = parseISO(`${fullyVisibleMonthCells[0]!.key}-01`);
-  const lastMonthStart = parseISO(
-    `${fullyVisibleMonthCells[fullyVisibleMonthCells.length - 1]!.key}-01`,
-  );
-
   return {
-    start: firstMonthStart,
-    end: addMonths(lastMonthStart, 1),
+    start: fullyVisibleMonthCells[0]!.start,
+    end: fullyVisibleMonthCells[fullyVisibleMonthCells.length - 1]!.end,
   };
 }
 
@@ -437,12 +439,15 @@ export function TimelineGrid({
   const conferenceTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>(
     {},
   );
-  const monthCells = getMonthCells(visibleRange);
-  const firstFullyVisibleMonthStart = getFirstFullyVisibleMonthStart(monthCells);
+  const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
+  const monthCells = getMonthCells(visibleRange, resolvedViewerTimeZone);
   const renderWindow = getRenderWindow(monthCells, visibleRange);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
   const todayLeft = getPositionPercent(now, visibleRange);
-  const todayDateLabel = format(now, "MMM d, yyyy");
+  const todayDateLabel = formatCalendarDateInTimeZone(
+    now,
+    resolvedViewerTimeZone,
+  );
 
   useEffect(() => {
     return () => {
@@ -614,8 +619,14 @@ export function TimelineGrid({
                         }
 
                         const clippedPrimaryPath = clipTimelineSpan(
-                          parseISO(firstPrimaryMilestone.dateStart),
-                          parseISO(lastPrimaryMilestone.dateStart),
+                          getMilestoneInstant(
+                            firstPrimaryMilestone,
+                            resolvedViewerTimeZone,
+                          ),
+                          getMilestoneInstant(
+                            lastPrimaryMilestone,
+                            resolvedViewerTimeZone,
+                          ),
                           renderWindow,
                         );
 
@@ -651,8 +662,8 @@ export function TimelineGrid({
                       })()}
                       {rangeSegments.map((segment) => {
                         const clippedSegment = clipTimelineSpan(
-                          parseISO(segment.start),
-                          parseISO(segment.end),
+                          getMilestoneInstant(segment.start, resolvedViewerTimeZone),
+                          getMilestoneInstant(segment.end, resolvedViewerTimeZone),
                           renderWindow,
                         );
 
@@ -677,11 +688,12 @@ export function TimelineGrid({
                         );
                       })}
                       {conference.milestones.map((milestone) => {
-                        const milestoneStart = parseISO(milestone.dateStart);
+                        const milestoneStart = getMilestoneInstant(
+                          milestone,
+                          resolvedViewerTimeZone,
+                        );
 
                         if (
-                          (firstFullyVisibleMonthStart &&
-                            isBefore(milestoneStart, firstFullyVisibleMonthStart)) ||
                           !isWithinRenderWindow(milestoneStart, renderWindow) ||
                           !isWithinVisibleRange(
                             milestoneStart,
@@ -736,7 +748,7 @@ export function TimelineGrid({
                                 milestone={milestone}
                                 left={left}
                                 now={now}
-                                viewerTimeZone={viewerTimeZone}
+                                viewerTimeZone={resolvedViewerTimeZone}
                               />
                             ) : null}
                           </button>
