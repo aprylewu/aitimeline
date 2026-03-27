@@ -201,6 +201,38 @@ export function shiftDateByMonthsInTimeZone(
   );
 }
 
+export function shiftDateByDaysInTimeZone(
+  date: Date,
+  amount: number,
+  timeZone: string,
+) {
+  const localParts = getZonedDateTimeParts(date, timeZone);
+  const normalizedLocalDate = new Date(
+    Date.UTC(
+      localParts.year,
+      localParts.month - 1,
+      localParts.day + amount,
+      localParts.hour,
+      localParts.minute,
+      localParts.second,
+      date.getUTCMilliseconds(),
+    ),
+  );
+
+  return zonedDateTimeToUtc(
+    {
+      year: normalizedLocalDate.getUTCFullYear(),
+      month: normalizedLocalDate.getUTCMonth() + 1,
+      day: normalizedLocalDate.getUTCDate(),
+      hour: normalizedLocalDate.getUTCHours(),
+      minute: normalizedLocalDate.getUTCMinutes(),
+      second: normalizedLocalDate.getUTCSeconds(),
+      millisecond: normalizedLocalDate.getUTCMilliseconds(),
+    },
+    timeZone,
+  );
+}
+
 export function getZonedMonthStart(date: Date, timeZone: string) {
   const localParts = getZonedDateTimeParts(date, timeZone);
 

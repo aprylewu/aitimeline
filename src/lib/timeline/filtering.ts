@@ -59,15 +59,14 @@ export function filterConferences(args: FilterArgs): Conference[] {
         return false;
       }
 
-      return matchesQuery(conference, query);
-    })
-    .map((conference) => ({
-      ...conference,
-      milestones: conference.milestones.filter(
+      if (!matchesQuery(conference, query)) {
+        return false;
+      }
+
+      return conference.milestones.some(
         (milestone) =>
           visibleMilestoneTypes.has(milestone.type) &&
           intersectsVisibleRange(milestone, visibleRange, viewerTimeZone),
-      ),
-    }))
-    .filter((conference) => conference.milestones.length > 0);
+      );
+    });
 }

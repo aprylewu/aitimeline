@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ControlsBar } from "./controls-bar";
 import { TimelineGrid } from "./timeline-grid";
 import { getDefaultVisibleRange, getPresetVisibleRange } from "@/lib/timeline/date-range";
@@ -28,6 +28,7 @@ const THEME_COLORS = {
 } as const;
 
 const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
+  "abstract",
   "fullPaper",
   "rebuttalStart",
   "rebuttalEnd",
@@ -38,6 +39,12 @@ const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
 ];
 
 const LEGEND_ITEMS = [
+  {
+    key: "abstract",
+    label: "Abstract",
+    markerClass: "bg-[var(--timeline-neutral)]",
+    type: "dot" as const,
+  },
   {
     key: "fullPaper",
     label: "Full paper",
@@ -115,6 +122,91 @@ function getAllRange(
   };
 }
 
+function clampFocusRangeToTimeline(
+  focusRange: { start: Date; end: Date },
+  timelineRange: { start: Date; end: Date },
+) {
+  const focusDuration = focusRange.end.getTime() - focusRange.start.getTime();
+  const timelineDuration =
+    timelineRange.end.getTime() - timelineRange.start.getTime();
+
+  if (focusDuration >= timelineDuration) {
+    return timelineRange;
+  }
+
+  if (focusRange.start.getTime() < timelineRange.start.getTime()) {
+    return {
+      start: timelineRange.start,
+      end: new Date(timelineRange.start.getTime() + focusDuration),
+    };
+  }
+
+  if (focusRange.end.getTime() > timelineRange.end.getTime()) {
+    return {
+      start: new Date(timelineRange.end.getTime() - focusDuration),
+      end: timelineRange.end,
+    };
+  }
+
+  return focusRange;
+}
+
+function getTimelineContentWidth(args: {
+  focusRange: { start: Date; end: Date };
+  timelineRange: { start: Date; end: Date };
+  viewportWidth: number;
+}) {
+  const { focusRange, timelineRange, viewportWidth } = args;
+
+  if (viewportWidth <= 0) {
+    return 980;
+  }
+
+  const timelineDuration =
+    timelineRange.end.getTime() - timelineRange.start.getTime();
+  const focusDuration = Math.max(
+    1,
+    focusRange.end.getTime() - focusRange.start.getTime(),
+  );
+
+  if (timelineDuration <= 0 || focusDuration >= timelineDuration) {
+    return Math.max(980, viewportWidth);
+  }
+
+  return Math.max(
+    980,
+    Math.ceil(viewportWidth * (timelineDuration / focusDuration)),
+  );
+}
+
+function getFocusScrollLeft(args: {
+  contentWidth: number;
+  focusRange: { start: Date; end: Date };
+  timelineRange: { start: Date; end: Date };
+  viewportWidth: number;
+}) {
+  const { contentWidth, focusRange, timelineRange, viewportWidth } = args;
+
+  if (contentWidth <= viewportWidth) {
+    return 0;
+  }
+
+  const timelineDuration =
+    timelineRange.end.getTime() - timelineRange.start.getTime();
+
+  if (timelineDuration <= 0) {
+    return 0;
+  }
+
+  const offset = Math.max(
+    0,
+    focusRange.start.getTime() - timelineRange.start.getTime(),
+  );
+  const rawScrollLeft = (offset / timelineDuration) * contentWidth;
+
+  return Math.min(contentWidth - viewportWidth, rawScrollLeft);
+}
+
 function TimelineLegend() {
   return (
     <div
@@ -167,15 +259,46 @@ export function TimelineBrowser({
   const [categories, setCategories] = useState<Set<ConferenceCategory>>(
     () => new Set(),
   );
-  const [manualVisibleRange, setManualVisibleRange] = useState<{
+  const [manualFocusRange, setManualFocusRange] = useState<{
     end: Date;
     start: Date;
   } | null>(null);
-  const visibleRange = useMemo(
+  const timelineSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const focusScrollFrameRef = useRef<number | null>(null);
+  const focusScrollTimeoutRef = useRef<number | null>(null);
+  const desktopToggleFocusTimeoutRef = useRef<number | null>(null);
+  const [timelineSurfaceWidth, setTimelineSurfaceWidth] = useState(0);
+  const [timelineContentWidthBasis, setTimelineContentWidthBasis] = useState(0);
+  const timelineRange = useMemo(
+    () => getAllRange(conferences, resolvedViewerTimeZone),
+    [conferences, resolvedViewerTimeZone],
+  );
+  const focusRange = useMemo(
     () =>
-      manualVisibleRange ??
+      manualFocusRange ??
       getDefaultVisibleRange(timelineNow, resolvedViewerTimeZone),
-    [manualVisibleRange, resolvedViewerTimeZone, timelineNow],
+    [manualFocusRange, resolvedViewerTimeZone, timelineNow],
+  );
+  const clampedFocusRange = useMemo(
+    () => clampFocusRangeToTimeline(focusRange, timelineRange),
+    [focusRange, timelineRange],
+  );
+  const timelineContentWidth = useMemo(
+    () =>
+      getTimelineContentWidth({
+        focusRange: clampedFocusRange,
+        timelineRange,
+        viewportWidth:
+          timelineContentWidthBasis > 0
+            ? timelineContentWidthBasis
+            : timelineSurfaceWidth,
+      }),
+    [
+      clampedFocusRange,
+      timelineContentWidthBasis,
+      timelineRange,
+      timelineSurfaceWidth,
+    ],
   );
   const [visibleMilestoneTypes, setVisibleMilestoneTypes] = useState(
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
@@ -207,6 +330,18 @@ export function TimelineBrowser({
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (
+        typeof window !== "undefined" &&
+        desktopToggleFocusTimeoutRef.current !== null
+      ) {
+        window.clearTimeout(desktopToggleFocusTimeoutRef.current);
+        desktopToggleFocusTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return undefined;
     }
@@ -227,6 +362,8 @@ export function TimelineBrowser({
     }
 
     function handleResize() {
+      setTimelineContentWidthBasis(0);
+
       const mobile = getIsMobileViewport();
 
       setIsMobileViewport(mobile);
@@ -291,6 +428,110 @@ export function TimelineBrowser({
   }, [hasRestoredDesktopMenuPreference, isDesktopMenuCollapsed]);
 
   useEffect(() => {
+    const surface = timelineSurfaceRef.current;
+
+    if (!surface) {
+      return undefined;
+    }
+
+    const updateWidth = () => {
+      setTimelineSurfaceWidth(surface.clientWidth);
+      setTimelineContentWidthBasis((current) =>
+        current > 0 ? current : surface.clientWidth,
+      );
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateWidth();
+    });
+
+    resizeObserver.observe(surface);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const surface = timelineSurfaceRef.current;
+
+    if (!surface) {
+      return;
+    }
+
+    setTimelineContentWidthBasis(surface.clientWidth);
+  }, [clampedFocusRange.end, clampedFocusRange.start]);
+
+  useLayoutEffect(() => {
+    const surface = timelineSurfaceRef.current;
+
+    if (!surface || timelineSurfaceWidth <= 0) {
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      surface.scrollLeft = getFocusScrollLeft({
+        contentWidth: timelineContentWidth,
+        focusRange: clampedFocusRange,
+        timelineRange,
+        viewportWidth: timelineSurfaceWidth,
+      });
+      return;
+    }
+
+    if (focusScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusScrollFrameRef.current);
+    }
+
+    if (focusScrollTimeoutRef.current !== null) {
+      window.clearTimeout(focusScrollTimeoutRef.current);
+    }
+
+    focusScrollFrameRef.current = window.requestAnimationFrame(() => {
+      const targetScrollLeft = getFocusScrollLeft({
+        contentWidth: timelineContentWidth,
+        focusRange: clampedFocusRange,
+        timelineRange,
+        viewportWidth: timelineSurfaceWidth,
+      });
+
+      surface.scrollLeft = targetScrollLeft;
+      focusScrollFrameRef.current = null;
+
+      // Sidebar collapse/expand animates the grid width over 200ms.
+      // Re-apply the focus position after the transition settles so the
+      // browser does not snap the scroll container back to the far left.
+      focusScrollTimeoutRef.current = window.setTimeout(() => {
+        surface.scrollLeft = targetScrollLeft;
+        focusScrollTimeoutRef.current = null;
+      }, 240);
+    });
+
+    return () => {
+      if (focusScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(focusScrollFrameRef.current);
+        focusScrollFrameRef.current = null;
+      }
+
+      if (focusScrollTimeoutRef.current !== null) {
+        window.clearTimeout(focusScrollTimeoutRef.current);
+        focusScrollTimeoutRef.current = null;
+      }
+    };
+  }, [
+    clampedFocusRange,
+    timelineContentWidth,
+    timelineRange,
+    timelineSurfaceWidth,
+  ]);
+
+  useEffect(() => {
     if (typeof document === "undefined") {
       return;
     }
@@ -311,14 +552,66 @@ export function TimelineBrowser({
 
   function handlePresetSelect(preset: "3M" | "6M" | "12M" | "All") {
     if (preset === "All") {
-      setManualVisibleRange(getAllRange(conferences, resolvedViewerTimeZone));
+      setManualFocusRange(getAllRange(conferences, resolvedViewerTimeZone));
       return;
     }
 
     const months = Number.parseInt(preset, 10);
-    setManualVisibleRange(
+    setManualFocusRange(
       getPresetVisibleRange(timelineNow, resolvedViewerTimeZone, months),
     );
+  }
+
+  function restoreFocusScrollFromLiveLayout() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const surface = timelineSurfaceRef.current;
+
+    if (!surface) {
+      return;
+    }
+
+    const viewportWidth = surface.clientWidth;
+    const contentWidth = surface.scrollWidth;
+
+    if (viewportWidth <= 0 || contentWidth <= viewportWidth) {
+      return;
+    }
+
+    surface.scrollLeft = getFocusScrollLeft({
+      contentWidth,
+      focusRange: clampedFocusRange,
+      timelineRange,
+      viewportWidth,
+    });
+  }
+
+  function handleDesktopMenuToggle() {
+    const preservedScrollLeft = timelineSurfaceRef.current?.scrollLeft ?? 0;
+
+    setIsDesktopMenuCollapsed((current) => !current);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (desktopToggleFocusTimeoutRef.current !== null) {
+      window.clearTimeout(desktopToggleFocusTimeoutRef.current);
+    }
+
+    desktopToggleFocusTimeoutRef.current = window.setTimeout(() => {
+      const surface = timelineSurfaceRef.current;
+
+      if (surface) {
+        surface.scrollLeft = preservedScrollLeft;
+      } else {
+        restoreFocusScrollFromLiveLayout();
+      }
+
+      desktopToggleFocusTimeoutRef.current = null;
+    }, 260);
   }
 
   const sections = organizeConferenceSections({
@@ -326,7 +619,7 @@ export function TimelineBrowser({
     query,
     categories,
     visibleMilestoneTypes,
-    visibleRange,
+    visibleRange: clampedFocusRange,
     viewerTimeZone: resolvedViewerTimeZone,
     now: timelineNow,
   });
@@ -339,7 +632,7 @@ export function TimelineBrowser({
       className="timeline-browser min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)]"
     >
       <div
-        className={`relative flex flex-col lg:grid lg:min-h-screen lg:transition-[grid-template-columns] lg:duration-200 lg:ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`relative flex flex-col lg:grid lg:min-h-screen ${
           isDesktopMenuCollapsed
             ? "lg:[grid-template-columns:78px_minmax(0,1fr)]"
             : "lg:[grid-template-columns:336px_minmax(0,1fr)]"
@@ -369,9 +662,7 @@ export function TimelineBrowser({
           isMobileCompact={isMobileMenuCompact}
           onMobileMenuExpand={() => setIsMobileMenuCompact(false)}
           isDesktopCollapsed={isDesktopMenuCollapsed}
-          onDesktopMenuToggle={() =>
-            setIsDesktopMenuCollapsed((current) => !current)
-          }
+          onDesktopMenuToggle={handleDesktopMenuToggle}
         />
 
         <section className="min-w-0">
@@ -390,6 +681,7 @@ export function TimelineBrowser({
             </div>
             <TimelineLegend />
             <div
+              ref={timelineSurfaceRef}
               data-testid="timeline-surface"
               className="timeline-shell overflow-x-auto rounded-[28px] border border-[var(--panel-border)]"
             >
@@ -398,9 +690,11 @@ export function TimelineBrowser({
                   { id: "active", label: "Active", conferences: sections.active },
                   { id: "past", label: "Past", conferences: sections.past },
                 ]}
-                visibleRange={visibleRange}
+                visibleMilestoneTypes={visibleMilestoneTypes}
+                visibleRange={timelineRange}
                 now={timelineNow}
                 viewerTimeZone={resolvedViewerTimeZone}
+                width={timelineContentWidth}
               />
             </div>
             {visibleConferenceCount === 0 ? (

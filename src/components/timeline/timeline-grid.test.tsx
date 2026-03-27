@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
+import { getMilestoneInstant } from "@/lib/timeline/milestone-time";
+import { getPositionPercent } from "@/lib/timeline/positioning";
 import { organizeConferenceSections } from "@/lib/timeline/sections";
 import { TimelineGrid } from "./timeline-grid";
 
@@ -65,12 +67,19 @@ function getLeftPercent(node: HTMLElement) {
   return Number.parseFloat(node.style.left.replace("%", ""));
 }
 
+function getRightPercent(node: HTMLElement) {
+  return (
+    Number.parseFloat(node.style.left.replace("%", "")) +
+    Number.parseFloat(node.style.width.replace("%", ""))
+  );
+}
+
 it("renders a continuous primary path bar", () => {
   renderTimelineGrid([colmConference]);
 
   const path = screen.getByTestId("primary-path-colm-2026");
-  expect(path).toHaveAttribute("data-path-start", "fullPaper");
-  expect(path).toHaveAttribute("data-path-end", "notification");
+  expect(path).toHaveAttribute("data-path-start", "abstract");
+  expect(path).toHaveAttribute("data-path-end", "conferenceEnd");
 });
 
 it("renders highlighted primary milestones and shows a tooltip on hover", async () => {
@@ -219,13 +228,98 @@ it("uses semantic tones for full paper, notification, rebuttal, and conference m
   );
 });
 
+it("extends the conference range to the overall event end when workshops run later", () => {
+  const visibleRange = {
+    start: new Date("2026-12-01T00:00:00Z"),
+    end: new Date("2026-12-31T00:00:00Z"),
+  };
+  const workshop = neuripsConference.milestones.find(
+    (milestone) => milestone.type === "workshop",
+  )!;
+
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: [neuripsConference],
+        },
+      ]}
+      visibleMilestoneTypes={defaultVisibleMilestoneTypes}
+      visibleRange={visibleRange}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  const conferenceRange = screen.getByTestId("range-neurips-2026-conference");
+  const expectedOverallEnd = getPositionPercent(
+    getMilestoneInstant(workshop),
+    visibleRange,
+  );
+
+  expect(getRightPercent(conferenceRange)).toBeCloseTo(
+    expectedOverallEnd,
+    5,
+  );
+});
+
+it("does not stretch short conference ranges past their end marker", () => {
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: [colmConference],
+        },
+      ]}
+      visibleMilestoneTypes={defaultVisibleMilestoneTypes}
+      visibleRange={{
+        start: new Date("2026-01-01T00:00:00Z"),
+        end: new Date("2026-12-31T00:00:00Z"),
+      }}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  const conferenceRange = screen.getByTestId("range-colm-2026-conference");
+  const conferenceEndMarker = screen.getByLabelText("Conference ends");
+
+  expect(getRightPercent(conferenceRange)).toBeCloseTo(
+    getLeftPercent(conferenceEndMarker),
+    5,
+  );
+});
+
 it("renders larger month labels for the shared axis", () => {
   renderTimelineGrid([colmConference]);
 
   expect(screen.getByText("Apr")).toHaveClass("text-[13px]");
 });
 
-it("shows centered labels only for fully visible month cells", () => {
+it("keeps the venue column frozen while leaving the timeline lane scrollable", () => {
+  renderTimelineGrid([colmConference, iclrConference]);
+
+  const venueHead = screen.getByText("Venue").closest("div");
+  const sectionLabel = screen.getByText("Active").closest("div");
+  const conferenceCell = screen
+    .getByTestId("conference-trigger-colm-2026")
+    .parentElement;
+  const timelineRow = screen
+    .getByTestId("timeline-row-grid-colm-2026")
+    .closest("div");
+
+  expect(venueHead).toHaveClass("sticky");
+  expect(venueHead).toHaveClass("left-0");
+  expect(sectionLabel).toHaveClass("sticky");
+  expect(sectionLabel).toHaveClass("left-0");
+  expect(conferenceCell).toHaveClass("sticky");
+  expect(conferenceCell).toHaveClass("left-0");
+  expect(timelineRow).not.toHaveClass("sticky");
+});
+
+it("keeps boundary month labels and late-month milestones visible inside the timeline range", () => {
   renderTimelineGridWithRange({
     visibleConferences: [colmConference],
     visibleRange: {
@@ -234,13 +328,14 @@ it("shows centered labels only for fully visible month cells", () => {
     },
   });
 
-  expect(screen.queryByText(/^Jan$/)).not.toBeInTheDocument();
+  expect(screen.getByText(/^Jan$/)).toBeInTheDocument();
   expect(screen.getByText(/^Feb$/)).toBeInTheDocument();
   expect(screen.getByText(/^Mar$/)).toBeInTheDocument();
   expect(screen.getByText(/^Apr$/)).toBeInTheDocument();
   expect(screen.getByText(/^May$/)).toBeInTheDocument();
   expect(screen.getByText(/^Jun$/)).toBeInTheDocument();
-  expect(screen.queryByText(/^Jul$/)).not.toBeInTheDocument();
+  expect(screen.getByText(/^Jul$/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Notification")).toBeInTheDocument();
 });
 
 it("uses the same month cell layout for the shared axis and each row grid", () => {
@@ -275,7 +370,7 @@ it("does not render milestone markers that fall outside the visible range", () =
   expect(screen.getByLabelText("Notification")).toBeInTheDocument();
 });
 
-it("does not render milestone markers from a partially clipped leading month", () => {
+it("keeps boundary months labeled while still hiding milestones that are truly out of range", () => {
   renderTimelineGridWithRange({
     visibleConferences: [icmlConference],
     visibleRange: {
@@ -284,13 +379,13 @@ it("does not render milestone markers from a partially clipped leading month", (
     },
   });
 
-  expect(screen.queryByText(/^Jan$/)).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Full paper")).not.toBeInTheDocument();
+  expect(screen.getByText(/^Jan$/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Full paper")).toBeInTheDocument();
   expect(screen.queryByLabelText("Abstract")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Notification")).toBeInTheDocument();
 });
 
-it("clips the primary path to the first fully visible month boundary", () => {
+it("clips the conference path to the visible range edge instead of the next full month", () => {
   renderTimelineGridWithRange({
     visibleConferences: [icmlConference],
     visibleRange: {
@@ -302,7 +397,8 @@ it("clips the primary path to the first fully visible month boundary", () => {
   const path = screen.getByTestId("primary-path-icml-2026");
   const febCell = screen.getByTestId("axis-month-cell-2026-02");
 
-  expect(path.style.left).toBe(febCell.style.left);
+  expect(path.style.left).toBe("0%");
+  expect(path.style.left).not.toBe(febCell.style.left);
 });
 
 it("projects AoE milestones onto the viewer-local timeline axis", () => {
@@ -382,7 +478,7 @@ it("removes the legacy gray row baseline from timeline rows", () => {
   expect(legacyBaselines).toHaveLength(0);
 });
 
-it("does not render a stub primary path when only the final decision remains visible", () => {
+it("keeps the conference path available when only the final decision is inside the focus range", () => {
   const visibleRange = {
     start: new Date("2026-01-27T00:00:00Z"),
     end: new Date("2026-07-27T00:00:00Z"),
@@ -408,9 +504,10 @@ it("does not render a stub primary path when only the final decision remains vis
     />,
   );
 
-  expect(
-    screen.queryByTestId("primary-path-sigmod-2026"),
-  ).not.toBeInTheDocument();
+  const path = screen.getByTestId("primary-path-sigmod-2026");
+
+  expect(path).toHaveAttribute("data-path-start", "abstract");
+  expect(path).toHaveAttribute("data-path-end", "conferenceEnd");
 });
 
 it("allows multiple conference detail rows to stay expanded", async () => {

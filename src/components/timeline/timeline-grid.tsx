@@ -14,6 +14,7 @@ import {
   addMonthsInTimeZone,
   formatCalendarDateInTimeZone,
   getMilestoneInstant,
+  getMilestoneRange,
   getMonthKey,
   getMonthLabel,
   getZonedMonthStart,
@@ -28,10 +29,12 @@ interface TimelineGridProps {
     id: string;
     label: string;
   }>;
+  visibleMilestoneTypes?: Set<MilestoneType>;
   visibleRange: {
     start: Date;
     end: Date;
   };
+  width?: number;
   now: Date;
   viewerTimeZone?: string;
 }
@@ -53,7 +56,6 @@ interface MonthCell {
   end: Date;
   key: string;
   label: string;
-  labelVisible: boolean;
   left: number;
   start: Date;
   width: number;
@@ -84,11 +86,98 @@ function getPrimaryPathMilestones(milestones: Milestone[]) {
     .filter(Boolean) as Milestone[];
 }
 
-function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
-  const rebuttalStart = findMilestone(milestones, "rebuttalStart");
-  const rebuttalEnd = findMilestone(milestones, "rebuttalEnd");
+function getOverallConferenceBoundaryMilestones(
+  milestones: Milestone[],
+  viewerTimeZone?: string,
+) {
   const conferenceStart = findMilestone(milestones, "conferenceStart");
   const conferenceEnd = findMilestone(milestones, "conferenceEnd");
+  const workshop = findMilestone(milestones, "workshop");
+  const startCandidates = [conferenceStart, workshop].filter(Boolean) as Milestone[];
+  const endCandidates = [conferenceEnd, workshop].filter(Boolean) as Milestone[];
+
+  const overallStart = startCandidates.reduce<Milestone | undefined>(
+    (earliest, candidate) => {
+      if (!earliest) {
+        return candidate;
+      }
+
+      return getMilestoneRange(candidate, viewerTimeZone).start.getTime() <
+        getMilestoneRange(earliest, viewerTimeZone).start.getTime()
+        ? candidate
+        : earliest;
+    },
+    undefined,
+  );
+  const overallEnd = endCandidates.reduce<Milestone | undefined>(
+    (latest, candidate) => {
+      if (!latest) {
+        return candidate;
+      }
+
+      return getMilestoneRange(candidate, viewerTimeZone).end.getTime() >
+        getMilestoneRange(latest, viewerTimeZone).end.getTime()
+        ? candidate
+        : latest;
+    },
+    undefined,
+  );
+
+  return {
+    start: overallStart
+      ? {
+          ...overallStart,
+          id: `${overallStart.id}-conference-start-display`,
+          type: "conferenceStart" as const,
+          label: conferenceStart?.label ?? "Conference starts",
+          dateStart: overallStart.dateStart,
+          dateEnd: undefined,
+        }
+      : undefined,
+    end: overallEnd
+      ? {
+          ...overallEnd,
+          id: `${overallEnd.id}-conference-end-display`,
+          type: "conferenceEnd" as const,
+          label: conferenceEnd?.label ?? "Conference ends",
+          dateStart: overallEnd.dateEnd ?? overallEnd.dateStart,
+          dateEnd: undefined,
+        }
+      : undefined,
+  };
+}
+
+function getTimelineSpanMilestones(
+  milestones: Milestone[],
+  viewerTimeZone?: string,
+) {
+  if (milestones.length === 0) {
+    return null;
+  }
+
+  const conferenceBoundaryMilestones = getOverallConferenceBoundaryMilestones(
+    milestones,
+    viewerTimeZone,
+  );
+
+  return {
+    start: findMilestone(milestones, "abstract") ?? milestones[0]!,
+    end:
+      conferenceBoundaryMilestones.end ??
+      milestones[milestones.length - 1]!,
+  };
+}
+
+function getRangeSegments(
+  milestones: Milestone[],
+  viewerTimeZone?: string,
+): RangeSegment[] {
+  const rebuttalStart = findMilestone(milestones, "rebuttalStart");
+  const rebuttalEnd = findMilestone(milestones, "rebuttalEnd");
+  const conferenceBoundaryMilestones = getOverallConferenceBoundaryMilestones(
+    milestones,
+    viewerTimeZone,
+  );
 
   return [
     rebuttalStart && rebuttalEnd
@@ -100,16 +189,77 @@ function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
           top: "top-[22px]",
         }
       : null,
-    conferenceStart && conferenceEnd
+    conferenceBoundaryMilestones.start && conferenceBoundaryMilestones.end
       ? {
           key: "conference",
-          start: conferenceStart,
-          end: conferenceEnd,
+          start: conferenceBoundaryMilestones.start,
+          end: conferenceBoundaryMilestones.end,
           tone: "conference",
           top: "top-[22px]",
         }
       : null,
   ].filter(Boolean) as RangeSegment[];
+}
+
+function areMilestonesEquivalent(
+  left: Milestone,
+  right: Milestone,
+  viewerTimeZone?: string,
+) {
+  const leftRange = getMilestoneRange(left, viewerTimeZone);
+  const rightRange = getMilestoneRange(right, viewerTimeZone);
+
+  return (
+    leftRange.start.getTime() === rightRange.start.getTime() &&
+    leftRange.end.getTime() === rightRange.end.getTime()
+  );
+}
+
+function getRenderedMilestones(args: {
+  milestones: Milestone[];
+  visibleMilestoneTypes: Set<MilestoneType>;
+  viewerTimeZone?: string;
+}) {
+  const { milestones, visibleMilestoneTypes, viewerTimeZone } = args;
+  const fullPaperMilestone = findMilestone(milestones, "fullPaper");
+  const conferenceBoundaryMilestones = getOverallConferenceBoundaryMilestones(
+    milestones,
+    viewerTimeZone,
+  );
+  const renderedMilestones = milestones.filter((milestone) => {
+    if (
+      !visibleMilestoneTypes.has(milestone.type) ||
+      milestone.type === "conferenceStart" ||
+      milestone.type === "conferenceEnd" ||
+      milestone.type === "workshop"
+    ) {
+      return false;
+    }
+
+    if (
+      milestone.type === "abstract" &&
+      fullPaperMilestone &&
+      areMilestonesEquivalent(milestone, fullPaperMilestone, viewerTimeZone)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (visibleMilestoneTypes.has("conferenceStart") && conferenceBoundaryMilestones.start) {
+    renderedMilestones.push(conferenceBoundaryMilestones.start);
+  }
+
+  if (visibleMilestoneTypes.has("conferenceEnd") && conferenceBoundaryMilestones.end) {
+    renderedMilestones.push(conferenceBoundaryMilestones.end);
+  }
+
+  return renderedMilestones.sort(
+    (left, right) =>
+      getMilestoneInstant(left, viewerTimeZone).getTime() -
+      getMilestoneInstant(right, viewerTimeZone).getTime(),
+  );
 }
 
 function getTickDates(
@@ -139,14 +289,10 @@ function getMonthCells(
       nextMonthStart.getTime() > range.end.getTime() ? range.end : nextMonthStart;
     const left = getPositionPercent(cellStart, range);
     const width = Math.max(0, getPositionPercent(cellEnd, range) - left);
-    const labelVisible =
-      monthStart.getTime() >= range.start.getTime() &&
-      nextMonthStart.getTime() <= range.end.getTime();
 
     return {
       key: getMonthKey(monthStart, viewerTimeZone),
       label: getMonthLabel(monthStart, viewerTimeZone),
-      labelVisible,
       left,
       start: monthStart,
       end: nextMonthStart,
@@ -156,21 +302,11 @@ function getMonthCells(
 }
 
 function getRenderWindow(
-  monthCells: MonthCell[],
   visibleRange: { start: Date; end: Date },
 ): RenderWindow {
-  const fullyVisibleMonthCells = monthCells.filter((monthCell) => monthCell.labelVisible);
-
-  if (fullyVisibleMonthCells.length === 0) {
-    return {
-      start: visibleRange.start,
-      end: visibleRange.end,
-    };
-  }
-
   return {
-    start: fullyVisibleMonthCells[0]!.start,
-    end: fullyVisibleMonthCells[fullyVisibleMonthCells.length - 1]!.end,
+    start: visibleRange.start,
+    end: visibleRange.end,
   };
 }
 
@@ -272,21 +408,29 @@ function isWithinVisibleRange(value: Date, range: { start: Date; end: Date }) {
 function formatConferenceDateRange(milestones: Milestone[]) {
   const conferenceStart = findMilestone(milestones, "conferenceStart");
   const conferenceEnd = findMilestone(milestones, "conferenceEnd");
+  const workshop = findMilestone(milestones, "workshop");
+  const startDateLabel = [conferenceStart?.dateStart, workshop?.dateStart]
+    .filter(Boolean)
+    .sort()[0];
+  const endDateLabel = [conferenceEnd?.dateStart, workshop?.dateEnd ?? workshop?.dateStart]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
 
-  if (!conferenceStart && !conferenceEnd) {
+  if (!startDateLabel && !endDateLabel) {
     return "TBA";
   }
 
-  if (conferenceStart && !conferenceEnd) {
-    return format(parseISO(conferenceStart.dateStart), "MMM d, yyyy");
+  if (startDateLabel && !endDateLabel) {
+    return format(parseISO(startDateLabel), "MMM d, yyyy");
   }
 
-  if (!conferenceStart && conferenceEnd) {
-    return format(parseISO(conferenceEnd.dateStart), "MMM d, yyyy");
+  if (!startDateLabel && endDateLabel) {
+    return format(parseISO(endDateLabel), "MMM d, yyyy");
   }
 
-  const startDate = parseISO(conferenceStart!.dateStart);
-  const endDate = parseISO(conferenceEnd!.dateStart);
+  const startDate = parseISO(startDateLabel!);
+  const endDate = parseISO(endDateLabel!);
 
   if (format(startDate, "yyyy-MM-dd") === format(endDate, "yyyy-MM-dd")) {
     return format(startDate, "MMM d, yyyy");
@@ -426,7 +570,9 @@ function ConferenceDetailRow({
 
 export function TimelineGrid({
   sections,
+  visibleMilestoneTypes,
   visibleRange,
+  width,
   now,
   viewerTimeZone,
 }: TimelineGridProps) {
@@ -449,13 +595,25 @@ export function TimelineGrid({
   );
   const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
   const monthCells = getMonthCells(visibleRange, resolvedViewerTimeZone);
-  const renderWindow = getRenderWindow(monthCells, visibleRange);
+  const renderWindow = getRenderWindow(visibleRange);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
   const todayLeft = getPositionPercent(now, visibleRange);
   const todayDateLabel = formatCalendarDateInTimeZone(
     now,
     resolvedViewerTimeZone,
   );
+  const renderedMilestoneTypes = visibleMilestoneTypes ?? new Set<MilestoneType>([
+    "abstract",
+    "fullPaper",
+    "supplementary",
+    "rebuttalStart",
+    "rebuttalEnd",
+    "notification",
+    "cameraReady",
+    "conferenceStart",
+    "conferenceEnd",
+    "workshop",
+  ]);
 
   useEffect(() => {
     return () => {
@@ -466,7 +624,11 @@ export function TimelineGrid({
   }, []);
 
   return (
-    <div className="relative min-w-[980px]">
+    <div
+      data-testid="timeline-scroll-content"
+      className="relative min-w-[980px]"
+      style={width ? { width: `${width}px` } : undefined}
+    >
       <div
         data-testid="timeline-grid-shell"
         className="relative z-10 grid grid-cols-[180px_minmax(0,1fr)]"
@@ -485,7 +647,7 @@ export function TimelineGrid({
             </div>
           </div>
         ) : null}
-        <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+        <div className="timeline-meta-head sticky left-0 z-30 border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
           Venue
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
@@ -501,11 +663,9 @@ export function TimelineGrid({
                     width: `${monthCell.width}%`,
                   }}
                 >
-                  {monthCell.labelVisible ? (
-                    <div className="timeline-axis-label absolute top-[28px] left-1/2 z-10 -translate-x-1/2 text-[13px] font-medium text-[var(--text-muted)]">
-                      {monthCell.label}
-                    </div>
-                  ) : null}
+                  <div className="timeline-axis-label absolute top-[28px] left-1/2 z-10 -translate-x-1/2 text-[13px] font-medium text-[var(--text-muted)]">
+                    {monthCell.label}
+                  </div>
                 </div>
               );
             })}
@@ -519,7 +679,7 @@ export function TimelineGrid({
           return (
             <Fragment key={section.id}>
               <div
-                className="timeline-section-label border-b border-[var(--panel-border)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]"
+                className="timeline-section-label sticky left-0 z-20 border-b border-[var(--panel-border)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]"
               >
                 {section.label}
               </div>
@@ -528,13 +688,22 @@ export function TimelineGrid({
                 const primaryPathMilestones = getPrimaryPathMilestones(
                   conference.milestones,
                 );
+                const timelineSpanMilestones = getTimelineSpanMilestones(
+                  conference.milestones,
+                  resolvedViewerTimeZone,
+                );
                 const primaryPathTypes = new Set(
                   primaryPathMilestones.map((milestone) => milestone.type),
                 );
-                const firstPrimaryMilestone = primaryPathMilestones[0];
-                const lastPrimaryMilestone =
-                  primaryPathMilestones[primaryPathMilestones.length - 1];
-                const rangeSegments = getRangeSegments(conference.milestones);
+                const rangeSegments = getRangeSegments(
+                  conference.milestones,
+                  resolvedViewerTimeZone,
+                );
+                const renderedMilestones = getRenderedMilestones({
+                  milestones: conference.milestones,
+                  visibleMilestoneTypes: renderedMilestoneTypes,
+                  viewerTimeZone: resolvedViewerTimeZone,
+                });
                 const showConferenceDetails = expandedConferenceIds.has(
                   conference.id,
                 );
@@ -544,7 +713,7 @@ export function TimelineGrid({
 
                 return (
                   <Fragment key={conference.id}>
-                    <div className="timeline-meta-cell relative flex min-h-[56px] items-center justify-center border-b border-[var(--panel-border)] px-3 py-1.5">
+                    <div className="timeline-meta-cell sticky left-0 z-20 flex min-h-[56px] items-center justify-center border-b border-[var(--panel-border)] px-3 py-1.5">
                       <button
                         ref={(node) => {
                           conferenceTriggerRefs.current[conference.id] = node;
@@ -622,17 +791,17 @@ export function TimelineGrid({
                         ))}
                       </div>
                       {(() => {
-                        if (!firstPrimaryMilestone || !lastPrimaryMilestone) {
+                        if (!timelineSpanMilestones) {
                           return null;
                         }
 
                         const clippedPrimaryPath = clipTimelineSpan(
                           getMilestoneInstant(
-                            firstPrimaryMilestone,
+                            timelineSpanMilestones.start,
                             resolvedViewerTimeZone,
                           ),
                           getMilestoneInstant(
-                            lastPrimaryMilestone,
+                            timelineSpanMilestones.end,
                             resolvedViewerTimeZone,
                           ),
                           renderWindow,
@@ -658,8 +827,8 @@ export function TimelineGrid({
                         return (
                           <div
                             data-testid={`primary-path-${conference.id}`}
-                            data-path-start={firstPrimaryMilestone.type}
-                            data-path-end={lastPrimaryMilestone.type}
+                            data-path-start={timelineSpanMilestones.start.type}
+                            data-path-end={timelineSpanMilestones.end.type}
                             className="absolute top-[22px] h-[8px] rounded-full bg-[var(--path-track)]"
                             style={{
                               left: `${left}%`,
@@ -669,6 +838,13 @@ export function TimelineGrid({
                         );
                       })()}
                       {rangeSegments.map((segment) => {
+                        if (
+                          !renderedMilestoneTypes.has(segment.start.type) ||
+                          !renderedMilestoneTypes.has(segment.end.type)
+                        ) {
+                          return null;
+                        }
+
                         const clippedSegment = clipTimelineSpan(
                           getMilestoneInstant(segment.start, resolvedViewerTimeZone),
                           getMilestoneInstant(segment.end, resolvedViewerTimeZone),
@@ -690,12 +866,12 @@ export function TimelineGrid({
                             className={`absolute h-[8px] rounded-full ${getToneClass(segment.tone, "range")} ${segment.top}`}
                             style={{
                               left: `${left}%`,
-                              width: `${Math.max(1.5, right - left)}%`,
+                              width: `${Math.max(0, right - left)}%`,
                             }}
                           />
                         );
                       })}
-                      {conference.milestones.map((milestone) => {
+                      {renderedMilestones.map((milestone) => {
                         const milestoneStart = getMilestoneInstant(
                           milestone,
                           resolvedViewerTimeZone,

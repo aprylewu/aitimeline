@@ -17,9 +17,9 @@ describe("filterConferences", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.shortName).toMatch(/neurips/i);
-    expect(
-      result[0]?.milestones.every((item) => item.type !== "cameraReady"),
-    ).toBe(true);
+    expect(result[0]?.milestones.some((item) => item.type === "abstract")).toBe(
+      true,
+    );
   });
 
   it("includes AoE milestones when their projected viewer-local instant falls inside the visible range", () => {

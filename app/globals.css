@@ -132,8 +132,12 @@ body {
 }
 
 .timeline-meta-head,
-.timeline-meta-cell {
+.timeline-meta-cell,
+.timeline-section-label {
   background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
+  box-shadow:
+    inset -1px 0 0 var(--panel-border),
+    10px 0 20px -20px rgba(15, 23, 42, 0.55);
 }
 
 .timeline-axis,

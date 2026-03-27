@@ -1,4 +1,8 @@
-import { addMonthsInTimeZone, resolveViewerTimeZone, shiftDateByMonthsInTimeZone } from "./milestone-time";
+import {
+  addMonthsInTimeZone,
+  resolveViewerTimeZone,
+  shiftDateByMonthsInTimeZone,
+} from "./milestone-time";
 
 export function getRelativeVisibleRange(
   now: Date,

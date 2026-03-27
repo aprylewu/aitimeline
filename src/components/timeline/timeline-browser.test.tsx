@@ -108,7 +108,7 @@ it("shows active and past sections, a today marker, and inline details on click"
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByText("Past")).toBeInTheDocument();
   expect(screen.getByTestId("today-line")).toBeInTheDocument();
-  expect(screen.getByLabelText(/camera-ready/i)).toBeInTheDocument();
+  expect(screen.getAllByLabelText(/camera-ready/i).length).toBeGreaterThan(0);
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
   expect(screen.getAllByText("NeurIPS").length).toBeGreaterThan(0);
   expect(screen.getAllByText("EMNLP").length).toBeGreaterThan(0);
@@ -154,6 +154,17 @@ it("renders a compact legend and shows the NeurIPS unpublished rebuttal note on 
   expect(
     screen.getByTestId("conference-detail-note-neurips-2026"),
   ).toHaveTextContent(/not.*announced/i);
+});
+
+it("shows Abstract milestones by default when they differ from the full paper deadline", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getAllByLabelText("Abstract").length).toBeGreaterThan(0);
 });
 
 it("collapses the desktop sidebar and restores the preference on rerender", async () => {
@@ -333,4 +344,57 @@ it("switches the mobile menu into compact mode after scrolling and restores filt
   expect(
     screen.getByPlaceholderText(/search conferences/i),
   ).toBeInTheDocument();
+});
+
+it("starts with a horizontally scrollable timeline focused on the default two-month back and four-month forward window", async () => {
+  const clientWidthSpy = vi
+    .spyOn(HTMLElement.prototype, "clientWidth", "get")
+    .mockReturnValue(960);
+  const ResizeObserverMock = class {
+    constructor(
+      private readonly callback: ResizeObserverCallback,
+    ) {}
+
+    observe(target: Element) {
+      this.callback(
+        [
+          {
+            target,
+            contentRect: {
+              width: 960,
+              height: 480,
+              top: 0,
+              left: 0,
+              bottom: 480,
+              right: 960,
+              x: 0,
+              y: 0,
+              toJSON: () => ({}),
+            },
+          } as ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      );
+    }
+
+    unobserve() {}
+
+    disconnect() {}
+  };
+
+  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-27T00:00:00Z")}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("timeline-surface").scrollLeft).toBeGreaterThan(0);
+  });
+
+  clientWidthSpy.mockRestore();
+  vi.unstubAllGlobals();
 });
