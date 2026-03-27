@@ -1,7 +1,29 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "./timeline-browser";
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+    writable: true,
+  });
+}
+
+function setScrollPosition(scrollY: number) {
+  Object.defineProperty(window, "scrollY", {
+    configurable: true,
+    value: scrollY,
+    writable: true,
+  });
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  setViewportWidth(1280);
+  setScrollPosition(0);
+});
 
 it("renders one shared gantt surface and supports dark mode", async () => {
   const user = userEvent.setup();
@@ -22,6 +44,8 @@ it("renders one shared gantt surface and supports dark mode", async () => {
   expect(screen.getByText(conferences[0]!.shortName)).toBeInTheDocument();
   expect(screen.getAllByTestId("timeline-surface")).toHaveLength(1);
   expect(browser).toHaveAttribute("data-theme", "light");
+  expect(screen.queryByText("Collapse")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /collapse menu/i })).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: /dark mode/i }));
 
@@ -49,4 +73,96 @@ it("shows active and past sections, a today marker, and hover details", async ()
   await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
 
   expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
+});
+
+it("collapses the desktop sidebar and restores the preference on rerender", async () => {
+  const user = userEvent.setup();
+
+  const firstRender = render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-layout",
+    "desktop",
+  );
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-collapsed",
+    "false",
+  );
+
+  await user.click(screen.getByRole("button", { name: /collapse menu/i }));
+
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-collapsed",
+    "true",
+  );
+  expect(screen.queryByText("Open")).not.toBeInTheDocument();
+  expect(
+    window.localStorage.getItem("timeline.desktopMenuCollapsed"),
+  ).toBe("true");
+
+  firstRender.unmount();
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-collapsed",
+    "true",
+  );
+  expect(
+    screen.getByRole("button", { name: /expand menu/i }),
+  ).toBeInTheDocument();
+});
+
+it("switches the mobile menu into compact mode after scrolling and restores filters on demand", async () => {
+  const user = userEvent.setup();
+
+  setViewportWidth(390);
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-layout",
+    "mobile",
+  );
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-compact",
+    "false",
+  );
+
+  setScrollPosition(180);
+  fireEvent.scroll(window);
+
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-compact",
+    "true",
+  );
+  expect(screen.getByRole("button", { name: /filters/i })).toBeInTheDocument();
+  expect(
+    screen.queryByPlaceholderText(/search conferences/i),
+  ).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /filters/i }));
+
+  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
+    "data-compact",
+    "false",
+  );
+  expect(
+    screen.getByPlaceholderText(/search conferences/i),
+  ).toBeInTheDocument();
 });

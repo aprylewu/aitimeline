@@ -18,14 +18,17 @@ The approved layout is a split-shell interface:
 
 ### Sidebar Shell
 
-- The controls move into a left-side `aside` with a fixed width in the main page layout.
+- The controls move into a left-side application shell instead of a floating card.
+- The sidebar is flush with the browser's left edge and shares that edge visually, closer to ChatGPT's desktop layout.
 - The sidebar stays `sticky` so filters remain reachable while the timeline scrolls.
-- The expanded state shows the full search, theme toggle, range presets, category chips, and milestone chips.
+- The expanded state shows the full search, range presets, category chips, and milestone chips in a full-width sidebar layout.
+- Theme switching moves to the bottom of the sidebar instead of the top action row.
 
 ### Collapsed Rail
 
 - The sidebar can collapse into a narrow rail similar to ChatGPT's desktop shell.
-- The rail remains visible at all times and keeps a clear expand button.
+- The rail remains visible at all times and keeps a clear hamburger-style menu button.
+- The expanded state uses an arrow-style collapse control instead of a text button.
 - The collapsed state should not show the full filter groups, but it should still feel intentional instead of looking hidden or broken.
 - The collapsed state should persist in `localStorage` so the preference survives reloads.
 
@@ -56,7 +59,8 @@ The approved layout is a split-shell interface:
 ## Visual Direction
 
 - Preserve the current restrained palette and calm, Apple-adjacent tone.
-- Keep the sidebar surface softly elevated with the existing translucent material treatment.
+- Avoid a detached floating-card look for the desktop sidebar.
+- Let the desktop shell read as part of the app frame, with a subtle divider between sidebar and content.
 - Avoid heavy shadows or dashboard-like density.
 - Use short `transform` and `opacity` transitions only.
 - The collapsed rail and compact mobile bar should look deliberate, not like partial leftovers of the expanded layout.
