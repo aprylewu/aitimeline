@@ -105,6 +105,22 @@ it("renders a separate today label and a compact inline detail strip on click", 
   ).toHaveAttribute("href", expect.stringContaining("aclweb.org"));
 });
 
+it("restores trigger hover feedback after expansion without keeping the clicked glow", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([aclConference]);
+
+  const trigger = screen.getByTestId("conference-trigger-acl-2026");
+
+  await user.click(trigger);
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+  expect(trigger).toHaveClass("conference-trigger--hover-cooldown");
+
+  await new Promise((resolve) => setTimeout(resolve, 240));
+
+  expect(trigger).not.toHaveClass("conference-trigger--hover-cooldown");
+});
+
 it("renders a single continuous today line overlay", () => {
   renderTimelineGrid([colmConference, iclrConference]);
 
