@@ -2,11 +2,15 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
+  addMonths,
   eachMonthOfInterval,
+  endOfDay,
+  endOfMonth,
   format,
   isAfter,
   isBefore,
   parseISO,
+  startOfDay,
   startOfMonth,
 } from "date-fns";
 import { ConferenceMetaColumn } from "./conference-meta-column";
@@ -39,6 +43,14 @@ interface RangeSegment {
   start: string;
   tone: TimelineTone;
   top: string;
+}
+
+interface MonthCell {
+  key: string;
+  label: string;
+  labelVisible: boolean;
+  left: number;
+  width: number;
 }
 
 type TimelineTone =
@@ -93,6 +105,32 @@ function getTickDates(range: { start: Date; end: Date }) {
   return eachMonthOfInterval({
     start: startOfMonth(range.start),
     end: range.end,
+  });
+}
+
+function getMonthCells(range: { start: Date; end: Date }): MonthCell[] {
+  const visibleStartDay = startOfDay(range.start).getTime();
+  const visibleEndDay = endOfDay(range.end).getTime();
+
+  return getTickDates(range).map((monthStart) => {
+    const nextMonthStart = addMonths(monthStart, 1);
+    const cellStart =
+      monthStart.getTime() < range.start.getTime() ? range.start : monthStart;
+    const cellEnd =
+      nextMonthStart.getTime() > range.end.getTime() ? range.end : nextMonthStart;
+    const left = getPositionPercent(cellStart, range);
+    const width = Math.max(0, getPositionPercent(cellEnd, range) - left);
+    const labelVisible =
+      monthStart.getTime() >= visibleStartDay &&
+      endOfMonth(monthStart).getTime() <= visibleEndDay;
+
+    return {
+      key: format(monthStart, "yyyy-MM"),
+      label: format(monthStart, "MMM"),
+      labelVisible,
+      left,
+      width,
+    };
   });
 }
 
@@ -300,7 +338,7 @@ function ConferenceDetailRow({
       data-testid={`conference-detail-row-${conference.id}`}
       data-expanded={String(expanded)}
       aria-hidden={!expanded}
-      className={`conference-inline-row col-span-2 grid overflow-hidden border-b transition-[grid-template-rows,opacity,padding,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
+      className={`conference-inline-row relative z-10 col-span-2 grid overflow-hidden border-b transition-[grid-template-rows,opacity,padding,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
     >
       <div
         className={`conference-inline-row-inner min-h-0 overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowInnerClass(expanded)}`}
@@ -333,9 +371,10 @@ export function TimelineGrid({
   const conferenceTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>(
     {},
   );
-  const ticks = getTickDates(visibleRange);
+  const monthCells = getMonthCells(visibleRange);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
   const todayLeft = getPositionPercent(now, visibleRange);
+  const todayDateLabel = format(now, "MMM d, yyyy");
 
   useEffect(() => {
     return () => {
@@ -353,18 +392,22 @@ export function TimelineGrid({
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
           <div className="timeline-axis-track">
-            {ticks.map((tick) => {
-              const left = getPositionPercent(tick, visibleRange);
-
+            {monthCells.map((monthCell) => {
               return (
                 <div
-                  key={tick.toISOString()}
-                  className="timeline-axis-tick"
-                  style={{ left: `${left}%` }}
+                  key={monthCell.key}
+                  data-testid={`axis-month-cell-${monthCell.key}`}
+                  className="timeline-axis-cell absolute inset-y-0"
+                  style={{
+                    left: `${monthCell.left}%`,
+                    width: `${monthCell.width}%`,
+                  }}
                 >
-                  <div className="timeline-axis-label text-[13px] font-medium text-[var(--text-muted)]">
-                    {format(tick, "MMM")}
-                  </div>
+                  {monthCell.labelVisible ? (
+                    <div className="timeline-axis-label absolute top-[28px] left-1/2 -translate-x-1/2 text-[13px] font-medium text-[var(--text-muted)]">
+                      {monthCell.label}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -464,9 +507,32 @@ export function TimelineGrid({
                       </button>
                     </div>
                     <div className="timeline-row border-b border-[var(--panel-border)] px-4">
-                      <div className="timeline-row-grid pointer-events-none absolute inset-0" />
-                      <div className="absolute top-[25px] left-0 right-0 h-[2px] bg-[var(--path-baseline)]" />
-                      {firstPrimaryMilestone && lastPrimaryMilestone ? (
+                      <div
+                        className="timeline-row-grid pointer-events-none absolute inset-0"
+                        data-testid={`timeline-row-grid-${conference.id}`}
+                      >
+                        {monthCells.map((monthCell, index) => (
+                          <div
+                            key={`${conference.id}-${monthCell.key}`}
+                            data-testid={`grid-month-cell-${conference.id}-${monthCell.key}`}
+                            className={`timeline-grid-month-cell absolute inset-y-0 ${index === 0 ? "border-l-transparent" : "border-l-[var(--grid-line)]"}`}
+                            style={{
+                              left: `${monthCell.left}%`,
+                              width: `${monthCell.width}%`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {firstPrimaryMilestone &&
+                      lastPrimaryMilestone &&
+                      getPositionPercent(
+                        parseISO(lastPrimaryMilestone.dateStart),
+                        visibleRange,
+                      ) >
+                        getPositionPercent(
+                          parseISO(firstPrimaryMilestone.dateStart),
+                          visibleRange,
+                        ) ? (
                         <div
                           data-testid={`primary-path-${conference.id}`}
                           data-path-start={firstPrimaryMilestone.type}
@@ -478,7 +544,7 @@ export function TimelineGrid({
                               visibleRange,
                             )}%`,
                             width: `${Math.max(
-                              2,
+                              0.75,
                               getPositionPercent(
                                 parseISO(lastPrimaryMilestone.dateStart),
                                 visibleRange,
@@ -577,11 +643,14 @@ export function TimelineGrid({
         })}
       </div>
       {todayVisible ? (
-        <div className="pointer-events-none absolute inset-y-0 left-[180px] right-0 z-10">
+        <div
+          data-testid="today-overlay"
+          className="pointer-events-none absolute inset-y-0 left-[180px] right-0 z-0"
+        >
           <div className="relative mx-4 h-full">
             <div
               data-testid="today-line"
-              className="absolute inset-y-0 w-px bg-[var(--accent-secondary)]/70"
+              className="absolute inset-y-0 w-[3px] -translate-x-1/2 rounded-full bg-[var(--accent-secondary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent),0_0_18px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent)]"
               style={{ left: `${todayLeft}%` }}
             />
             <span
@@ -589,7 +658,13 @@ export function TimelineGrid({
               className="timeline-today-label"
               style={{ left: `${todayLeft}%` }}
             >
-              Today
+              <span>Today</span>
+              <span
+                data-testid="today-date"
+                className="timeline-today-date ml-2 pl-2"
+              >
+                {todayDateLabel}
+              </span>
             </span>
           </div>
         </div>
