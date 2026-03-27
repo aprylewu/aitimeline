@@ -145,39 +145,42 @@ body {
 .timeline-axis-track {
   position: relative;
   min-height: 48px;
-}
-
-.timeline-axis-tick {
-  position: absolute;
-  top: 0;
-  bottom: 0;
+  overflow: hidden;
 }
 
 .timeline-axis-label {
-  position: absolute;
-  top: 28px;
-  left: 0;
-  width: max-content;
-  transform: translateX(-50%);
   letter-spacing: 0.08em;
   white-space: nowrap;
+  width: max-content;
 }
 
 .timeline-today-label {
   position: absolute;
   top: 8px;
   z-index: 1;
-  border: 1px solid color-mix(in srgb, var(--accent-secondary) 22%, transparent);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
-  padding: 2px 8px;
-  font-size: 10px;
+  background: color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-secondary) 10%, transparent);
+  padding: 4px 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-secondary);
   white-space: nowrap;
   transform: translateX(10px);
+}
+
+.timeline-today-date {
+  border-left: 1px solid color-mix(in srgb, var(--accent-secondary) 24%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: none;
 }
 
 .timeline-row {
@@ -185,14 +188,12 @@ body {
 }
 
 .timeline-row-grid {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0,
-    transparent calc(10% - 1px),
-    var(--grid-line) calc(10% - 1px),
-    var(--grid-line) 10%
-  );
-  background-size: 10% 100%;
+  position: absolute;
+  inset: 0;
+}
+
+.timeline-grid-month-cell {
+  border-left-width: 1px;
 }
 
 .timeline-marker {

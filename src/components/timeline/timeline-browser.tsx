@@ -77,15 +77,11 @@ function getAllRange(conferences: Conference[]) {
 export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
-  const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    getIsMobileViewport(),
-  );
-  const [isMobileMenuCompact, setIsMobileMenuCompact] = useState(() =>
-    getIsMobileViewport() && window.scrollY > MOBILE_MENU_COMPACT_SCROLL_Y,
-  );
-  const [isDesktopMenuCollapsed, setIsDesktopMenuCollapsed] = useState(() =>
-    getStoredDesktopMenuCollapsed(),
-  );
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isMobileMenuCompact, setIsMobileMenuCompact] = useState(false);
+  const [isDesktopMenuCollapsed, setIsDesktopMenuCollapsed] = useState(false);
+  const [hasRestoredDesktopMenuPreference, setHasRestoredDesktopMenuPreference] =
+    useState(false);
   const [categories, setCategories] = useState<Set<ConferenceCategory>>(
     () => new Set(),
   );
@@ -105,6 +101,21 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
       conference.milestones.some((milestone) => milestone.type === type),
     ),
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const restorePreferenceFrame = window.requestAnimationFrame(() => {
+      setIsDesktopMenuCollapsed(getStoredDesktopMenuCollapsed());
+      setHasRestoredDesktopMenuPreference(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(restorePreferenceFrame);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -162,7 +173,10 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
   }, [isMobileViewport]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (
+      typeof window === "undefined" ||
+      !hasRestoredDesktopMenuPreference
+    ) {
       return;
     }
 
@@ -170,7 +184,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
       DESKTOP_MENU_STORAGE_KEY,
       String(isDesktopMenuCollapsed),
     );
-  }, [isDesktopMenuCollapsed]);
+  }, [hasRestoredDesktopMenuPreference, isDesktopMenuCollapsed]);
 
   function handlePresetSelect(preset: "3M" | "6M" | "12M" | "All") {
     if (preset === "All") {

@@ -7,6 +7,18 @@ interface ConferenceMetaColumnProps {
   hovered?: boolean;
 }
 
+function getCompactTitleSizeClass(shortName: string) {
+  if (shortName.length <= 4) {
+    return "text-[24px]";
+  }
+
+  if (shortName.length <= 6) {
+    return "text-[20px]";
+  }
+
+  return "text-[18px]";
+}
+
 export function ConferenceMetaColumn({
   conference,
   compact = false,
@@ -23,7 +35,7 @@ export function ConferenceMetaColumn({
         <div className="flex items-center justify-center gap-2.5 text-center">
           <div className="flex min-w-0 items-baseline justify-center gap-2 whitespace-nowrap">
             <p
-              className={`conference-trigger-title text-[24px] leading-none font-semibold tracking-tight transition-colors duration-150 ${hovered ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}
+              className={`conference-trigger-title ${getCompactTitleSizeClass(conference.shortName)} leading-none font-semibold tracking-tight transition-colors duration-150 ${hovered ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}
             >
               {conference.shortName}
             </p>

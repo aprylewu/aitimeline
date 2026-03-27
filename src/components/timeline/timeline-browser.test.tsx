@@ -1,5 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "./timeline-browser";
 
@@ -25,6 +29,30 @@ beforeEach(() => {
   setScrollPosition(0);
 });
 
+async function waitForMenuState(
+  expected: Partial<{
+    compact: string;
+    collapsed: string;
+    layout: string;
+  }>,
+) {
+  await waitFor(() => {
+    const menu = screen.getByTestId("timeline-menu");
+
+    if (expected.layout) {
+      expect(menu).toHaveAttribute("data-layout", expected.layout);
+    }
+
+    if (expected.compact) {
+      expect(menu).toHaveAttribute("data-compact", expected.compact);
+    }
+
+    if (expected.collapsed) {
+      expect(menu).toHaveAttribute("data-collapsed", expected.collapsed);
+    }
+  });
+}
+
 it("renders one shared gantt surface and supports dark mode", async () => {
   const user = userEvent.setup();
 
@@ -34,6 +62,8 @@ it("renders one shared gantt surface and supports dark mode", async () => {
       now={new Date("2026-03-26T00:00:00Z")}
     />,
   );
+
+  await waitForMenuState({ layout: "desktop", collapsed: "false" });
 
   const browser = screen.getByTestId("timeline-browser");
 
@@ -95,25 +125,17 @@ it("collapses the desktop sidebar and restores the preference on rerender", asyn
     />,
   );
 
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-layout",
-    "desktop",
-  );
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-collapsed",
-    "false",
-  );
+  await waitForMenuState({ layout: "desktop", collapsed: "false" });
 
   await user.click(screen.getByRole("button", { name: /collapse menu/i }));
 
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-collapsed",
-    "true",
-  );
+  await waitForMenuState({ layout: "desktop", collapsed: "true" });
   expect(screen.queryByText("Open")).not.toBeInTheDocument();
-  expect(
-    window.localStorage.getItem("timeline.desktopMenuCollapsed"),
-  ).toBe("true");
+  await waitFor(() => {
+    expect(
+      window.localStorage.getItem("timeline.desktopMenuCollapsed"),
+    ).toBe("true");
+  });
 
   firstRender.unmount();
 
@@ -124,13 +146,100 @@ it("collapses the desktop sidebar and restores the preference on rerender", asyn
     />,
   );
 
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-collapsed",
-    "true",
-  );
+  await waitForMenuState({ layout: "desktop", collapsed: "true" });
   expect(
     screen.getByRole("button", { name: /expand menu/i }),
   ).toBeInTheDocument();
+});
+
+it("hydrates the desktop menu without server-client markup drift before restoring stored preference", async () => {
+  setViewportWidth(1280);
+  window.localStorage.setItem("timeline.desktopMenuCollapsed", "true");
+
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const originalWindow = globalThis.window;
+
+  // Simulate the server render where browser globals are unavailable.
+  vi.stubGlobal("window", undefined);
+
+  const html = renderToString(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  vi.stubGlobal("window", originalWindow);
+
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  await act(async () => {
+    hydrateRoot(
+      container,
+      <TimelineBrowser
+        conferences={conferences}
+        now={new Date("2026-03-26T00:00:00Z")}
+      />,
+    );
+  });
+
+  expect(consoleError).not.toHaveBeenCalled();
+  await waitFor(() => {
+    expect(
+      container.querySelector("[data-testid='timeline-menu']"),
+    ).toHaveAttribute("data-collapsed", "true");
+  });
+
+  consoleError.mockRestore();
+  container.remove();
+});
+
+it("hydrates the mobile compact menu without server-client markup drift", async () => {
+  setViewportWidth(390);
+  setScrollPosition(180);
+
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const originalWindow = globalThis.window;
+
+  vi.stubGlobal("window", undefined);
+
+  const html = renderToString(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  vi.stubGlobal("window", originalWindow);
+
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  await act(async () => {
+    hydrateRoot(
+      container,
+      <TimelineBrowser
+        conferences={conferences}
+        now={new Date("2026-03-26T00:00:00Z")}
+      />,
+    );
+  });
+
+  expect(consoleError).not.toHaveBeenCalled();
+  await waitFor(() => {
+    expect(
+      container.querySelector("[data-testid='timeline-menu']"),
+    ).toHaveAttribute("data-layout", "mobile");
+    expect(
+      container.querySelector("[data-testid='timeline-menu']"),
+    ).toHaveAttribute("data-compact", "true");
+  });
+
+  consoleError.mockRestore();
+  container.remove();
 });
 
 it("switches the mobile menu into compact mode after scrolling and restores filters on demand", async () => {
@@ -145,22 +254,12 @@ it("switches the mobile menu into compact mode after scrolling and restores filt
     />,
   );
 
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-layout",
-    "mobile",
-  );
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-compact",
-    "false",
-  );
+  await waitForMenuState({ layout: "mobile", compact: "false" });
 
   setScrollPosition(180);
   fireEvent.scroll(window);
 
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-compact",
-    "true",
-  );
+  await waitForMenuState({ layout: "mobile", compact: "true" });
   expect(screen.getByRole("button", { name: /filters/i })).toBeInTheDocument();
   expect(
     screen.queryByPlaceholderText(/search conferences/i),
@@ -168,10 +267,7 @@ it("switches the mobile menu into compact mode after scrolling and restores filt
 
   await user.click(screen.getByRole("button", { name: /filters/i }));
 
-  expect(screen.getByTestId("timeline-menu")).toHaveAttribute(
-    "data-compact",
-    "false",
-  );
+  await waitForMenuState({ layout: "mobile", compact: "false" });
   expect(
     screen.getByPlaceholderText(/search conferences/i),
   ).toBeInTheDocument();
