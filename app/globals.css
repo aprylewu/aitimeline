@@ -64,10 +64,12 @@
 
 html {
   background: var(--page-bg);
+  background-color: var(--page-bg);
 }
 
 body {
   min-height: 100vh;
+  background-color: var(--page-bg);
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.16), transparent 28%),
     linear-gradient(180deg, color-mix(in srgb, var(--page-bg) 78%, white) 0%, var(--page-bg) 100%);

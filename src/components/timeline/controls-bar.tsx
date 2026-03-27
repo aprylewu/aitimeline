@@ -257,55 +257,20 @@ function FilterSections({
   );
 }
 
-function MobileExpandedControls(props: ControlsBarProps) {
-  return (
-    <aside
-      data-testid="timeline-menu"
-      data-layout="mobile"
-      data-collapsed="false"
-      data-compact="false"
-      className="timeline-menu-shell timeline-menu-mobile sticky top-3 z-30"
-    >
-      <div className="timeline-menu-mobile-panel rounded-[30px] border border-[var(--panel-border)] px-4 py-4 backdrop-blur-xl">
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-            Filters
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-            Refine the visible timeline
-          </h2>
-          <p className="max-w-[32ch] text-sm leading-6 text-[var(--text-muted)]">
-            Focus the venues, milestones, and horizon without leaving the page.
-          </p>
-        </div>
-
-        <div className="mt-5">
-          <FilterSections {...props} />
-        </div>
-
-        <div className="mt-5 border-t border-[var(--panel-border)] pt-4">
-          <button
-            type="button"
-            onClick={props.onThemeToggle}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-          >
-            <ThemeIcon theme={props.theme} />
-            {props.theme === "light" ? "Dark mode" : "Light mode"}
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function MobileCompactControls({
+function MobileControls({
   query,
   categories,
   visibleMilestoneTypes,
   availableMilestoneTypes,
   onMobileMenuExpand,
+  isMobileCompact,
   theme,
   onThemeToggle,
+  availableCategories,
+  onCategoryToggle,
+  onMilestoneToggle,
+  onPresetSelect,
+  onQueryChange,
 }: Pick<
   ControlsBarProps,
   | "query"
@@ -313,9 +278,18 @@ function MobileCompactControls({
   | "visibleMilestoneTypes"
   | "availableMilestoneTypes"
   | "onMobileMenuExpand"
+  | "isMobileCompact"
   | "theme"
   | "onThemeToggle"
->) {
+> &
+  Pick<
+    ControlsBarProps,
+    | "availableCategories"
+    | "onCategoryToggle"
+    | "onMilestoneToggle"
+    | "onPresetSelect"
+    | "onQueryChange"
+  >) {
   const compactSummary = getCompactSummary(
     query,
     categories,
@@ -328,28 +302,95 @@ function MobileCompactControls({
       data-testid="timeline-menu"
       data-layout="mobile"
       data-collapsed="false"
-      data-compact="true"
+      data-compact={String(isMobileCompact)}
       className="timeline-menu-shell timeline-menu-mobile sticky top-3 z-30"
     >
-      <div className="timeline-menu-mobile-panel flex items-center gap-3 rounded-[24px] border border-[var(--panel-border)] px-3 py-3">
-        <button
-          type="button"
-          onClick={onMobileMenuExpand}
-          className="shrink-0 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+      <div
+        className={`timeline-menu-mobile-panel relative overflow-hidden transition-[max-height,border-radius,padding,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          isMobileCompact
+            ? "max-h-[84px] rounded-[24px] px-3 py-3"
+            : "max-h-[720px] rounded-[30px] px-4 py-4 backdrop-blur-xl"
+        }`}
+      >
+        <div
+          data-testid="timeline-menu-compact"
+          data-state={isMobileCompact ? "visible" : "hidden"}
+          aria-hidden={!isMobileCompact}
+          className={`absolute inset-x-3 top-3 flex items-center gap-3 transition-[opacity,transform] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            isMobileCompact
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-2 opacity-0"
+          }`}
         >
-          Filters
-        </button>
-        <p className="timeline-menu-summary min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-muted)]">
-          {compactSummary}
-        </p>
-        <button
-          type="button"
-          onClick={onThemeToggle}
-          aria-label={theme === "light" ? "Dark mode" : "Light mode"}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+          <button
+            type="button"
+            tabIndex={isMobileCompact ? 0 : -1}
+            onClick={onMobileMenuExpand}
+            className="shrink-0 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+          >
+            Filters
+          </button>
+          <p className="timeline-menu-summary min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-muted)]">
+            {compactSummary}
+          </p>
+          <button
+            type="button"
+            tabIndex={isMobileCompact ? 0 : -1}
+            onClick={onThemeToggle}
+            aria-label={theme === "light" ? "Dark mode" : "Light mode"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+          >
+            <ThemeIcon theme={theme} />
+          </button>
+        </div>
+
+        <div
+          data-testid="timeline-menu-expanded"
+          data-state={isMobileCompact ? "collapsed" : "expanded"}
+          aria-hidden={isMobileCompact}
+          className={`overflow-hidden transition-[opacity,transform,max-height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            isMobileCompact
+              ? "pointer-events-none max-h-0 -translate-y-3 opacity-0"
+              : "max-h-[640px] translate-y-0 opacity-100"
+          }`}
         >
-          <ThemeIcon theme={theme} />
-        </button>
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
+              Filters
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+              Refine the visible timeline
+            </h2>
+            <p className="max-w-[32ch] text-sm leading-6 text-[var(--text-muted)]">
+              Focus the venues, milestones, and horizon without leaving the page.
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <FilterSections
+              query={query}
+              onQueryChange={onQueryChange}
+              availableCategories={availableCategories}
+              categories={categories}
+              onCategoryToggle={onCategoryToggle}
+              availableMilestoneTypes={availableMilestoneTypes}
+              visibleMilestoneTypes={visibleMilestoneTypes}
+              onMilestoneToggle={onMilestoneToggle}
+              onPresetSelect={onPresetSelect}
+            />
+          </div>
+
+          <div className="mt-5 border-t border-[var(--panel-border)] pt-4">
+            <button
+              type="button"
+              onClick={onThemeToggle}
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+            >
+              <ThemeIcon theme={theme} />
+              {theme === "light" ? "Dark mode" : "Light mode"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -439,9 +480,5 @@ export function ControlsBar(props: ControlsBarProps) {
     return <DesktopControls {...props} />;
   }
 
-  if (props.isMobileCompact) {
-    return <MobileCompactControls {...props} />;
-  }
-
-  return <MobileExpandedControls {...props} />;
+  return <MobileControls {...props} />;
 }

@@ -21,6 +21,10 @@ const DESKTOP_BREAKPOINT = 1024;
 const MOBILE_MENU_COMPACT_SCROLL_Y = 96;
 const MOBILE_MENU_RESET_SCROLL_Y = 24;
 const DESKTOP_MENU_STORAGE_KEY = "timeline.desktopMenuCollapsed";
+const THEME_COLORS = {
+  dark: "#070b14",
+  light: "#f6f3ed",
+} as const;
 
 const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
   "fullPaper",
@@ -185,6 +189,25 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
       String(isDesktopMenuCollapsed),
     );
   }, [hasRestoredDesktopMenuPreference, isDesktopMenuCollapsed]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.documentElement.setAttribute("data-theme", theme);
+    document.body.setAttribute("data-theme", theme);
+
+    let themeColorMeta = document.querySelector("meta[name='theme-color']");
+
+    if (!themeColorMeta) {
+      themeColorMeta = document.createElement("meta");
+      themeColorMeta.setAttribute("name", "theme-color");
+      document.head.appendChild(themeColorMeta);
+    }
+
+    themeColorMeta.setAttribute("content", THEME_COLORS[theme]);
+  }, [theme]);
 
   function handlePresetSelect(preset: "3M" | "6M" | "12M" | "All") {
     if (preset === "All") {

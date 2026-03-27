@@ -56,6 +56,11 @@ async function waitForMenuState(
 it("renders one shared gantt surface and supports dark mode", async () => {
   const user = userEvent.setup();
 
+  const themeColorMeta = document.createElement("meta");
+  themeColorMeta.setAttribute("name", "theme-color");
+  themeColorMeta.setAttribute("content", "#f6f3ed");
+  document.head.appendChild(themeColorMeta);
+
   render(
     <TimelineBrowser
       conferences={conferences}
@@ -80,6 +85,9 @@ it("renders one shared gantt surface and supports dark mode", async () => {
   await user.click(screen.getByRole("button", { name: /dark mode/i }));
 
   expect(browser).toHaveAttribute("data-theme", "dark");
+  expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+  expect(document.body).toHaveAttribute("data-theme", "dark");
+  expect(themeColorMeta).toHaveAttribute("content", "#070b14");
 });
 
 it("shows active and past sections, a today marker, and inline details on click", async () => {
@@ -261,13 +269,34 @@ it("switches the mobile menu into compact mode after scrolling and restores filt
 
   await waitForMenuState({ layout: "mobile", compact: "true" });
   expect(screen.getByRole("button", { name: /filters/i })).toBeInTheDocument();
-  expect(
-    screen.queryByPlaceholderText(/search conferences/i),
-  ).not.toBeInTheDocument();
+  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
+    "data-state",
+    "collapsed",
+  );
+  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+  expect(screen.getByTestId("timeline-menu-compact")).toHaveAttribute(
+    "data-state",
+    "visible",
+  );
 
   await user.click(screen.getByRole("button", { name: /filters/i }));
 
   await waitForMenuState({ layout: "mobile", compact: "false" });
+  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
+    "data-state",
+    "expanded",
+  );
+  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
+    "aria-hidden",
+    "false",
+  );
+  expect(screen.getByTestId("timeline-menu-compact")).toHaveAttribute(
+    "data-state",
+    "hidden",
+  );
   expect(
     screen.getByPlaceholderText(/search conferences/i),
   ).toBeInTheDocument();
