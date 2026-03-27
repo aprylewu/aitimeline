@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the hover conference detail overlay with inline expandable rows that appear below each conference and can be expanded independently.
+**Goal:** Replace the hover conference detail overlay with dense inline expandable strips that appear below each conference and can be expanded independently.
 
-**Architecture:** Keep the existing timeline row structure intact and add a new full-width detail row after any expanded conference. Move conference detail visibility from transient hover state to explicit click state in `TimelineGrid`, and derive the rendered detail fields from the existing conference data model without adding new backend data requirements.
+**Architecture:** Keep the existing timeline row structure intact and add a new full-width detail row after any expanded conference. Render the detail area as a shared-border strip with compact typography, integrated date/location/ranking content, and an optional `CFP` action sourced from a new optional `cfpUrl` field on conference records.
 
 **Tech Stack:** Next.js App Router, React 19, TypeScript, Vitest, Testing Library, Tailwind utility classes, date-fns
 
@@ -20,12 +20,12 @@
 
 Add tests that:
 
-- click one conference trigger and expect an inline detail row below it
-- click two conference triggers and expect both detail rows to remain visible
-- click the same trigger twice and expect its detail row to disappear
-
-Use existing sample conferences and assert for visible labels such as ranking,
-type, location, and main page content.
+- click one conference trigger and expect a dense inline detail strip below it
+- assert the expanded detail strip shows `ACL 2026` style title hierarchy,
+  compact date/location text, and tight inline ranking content
+- assert a `CFP` link appears only when the selected conference has `cfpUrl`
+- click two conference triggers and expect both detail strips to remain visible
+- click the same trigger twice and expect its detail strip to collapse
 
 **Step 2: Run test to verify it fails**
 
@@ -70,12 +70,14 @@ Expected: FAIL with the new accordion expectations.
 
 Implement:
 
+- optional `cfpUrl` support in the conference data model
 - `expandedConferenceIds` state in `TimelineGrid`
 - click toggle behavior per conference
-- inline detail row inserted after each expanded conference using `col-span-2`
-- arrow indicator in the compact conference trigger
-- detail field rendering for rankings, type, dates, location, and main page
-- removal of obsolete hover detail card markup
+- inline detail strip inserted after each conference using `col-span-2`
+- title treatment with strong short name + muted mono year
+- compact date/location/ranking rendering
+- optional `CFP` button on the right
+- removal of obsolete card-like detail markup
 
 Keep milestone tooltip behavior untouched.
 
@@ -111,8 +113,8 @@ Expected: FAIL if the accessibility or detail-row hooks are still missing.
 
 **Step 3: Write minimal implementation**
 
-Add the panel styling and disclosure arrow animation, and remove the obsolete
-overlay animation styles.
+Add the shared-border strip styling, disclosure arrow animation, and smooth
+expand/collapse transition, and remove the obsolete card animation styles.
 
 **Step 4: Run test to verify it passes**
 

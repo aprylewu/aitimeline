@@ -2,10 +2,11 @@
 
 ## Goal
 
-Replace the current hover-based conference detail card with an inline accordion
-pattern that keeps the timeline readable. Clicking a conference in the left
-metadata column should insert a detail row directly below that conference while
-leaving the original conference label row and timeline row unchanged.
+Replace the current hover-based conference detail card with a dense inline
+accordion strip that keeps the timeline readable. Clicking a conference in the
+left metadata column should reveal a compact detail row directly below that
+conference while leaving the original conference label row and timeline row
+unchanged.
 
 ## User-Approved Interaction
 
@@ -36,13 +37,14 @@ the extra information visible only when requested.
 
 ## Detail Content
 
-Each expanded row shows:
+Each expanded row uses a tighter horizontal layout:
 
-- Conference rankings from `conference.rankings`
-- Conference type from `conference.category`
-- Conference date range derived from `conferenceStart` and `conferenceEnd`
-- Conference location from `conference.location`
-- Main page link from `conference.website`
+- Primary title line: `ACL 2026` style treatment, with the conference short
+  name in accent color and stronger weight, and the year in muted mono styling
+- Full conference title on the next line
+- Compact date and location summary on the next line
+- Tight inline metadata on the final line for conference type and rankings
+- Optional right-aligned `CFP` button when `conference.cfpUrl` is available
 
 If conference start/end milestones are missing, the date field should fall back
 to a neutral "TBA" style value instead of failing.
@@ -58,14 +60,15 @@ Milestone hover state remains independent and should keep its current behavior.
 
 ## Visual Direction
 
-The inline detail row should feel like an embedded expansion panel rather than a
-tooltip:
+The inline detail row should feel like a shared-border expansion strip rather
+than a card:
 
-- full-width panel nested inside the timeline shell
-- moderate separation from the main row using borders, padding, and surface
-  contrast
-- arrow motion on toggle
-- a short vertical reveal animation that does not cover other content
+- no floating card, rounded panel, or chip-heavy layout
+- reuse the conference row's lower divider as the top edge of the detail strip
+- use only a slightly different surface tone to distinguish the expanded strip
+- prioritize information density with reduced vertical padding
+- keep arrow motion on toggle
+- use a smooth expand/collapse animation rather than a pop-in card effect
 
 ## Testing
 

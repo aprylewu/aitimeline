@@ -46,6 +46,7 @@ export interface Conference {
   shortName: string;
   year: number;
   website: string;
+  cfpUrl?: string;
   location: string;
   category: ConferenceCategory;
   rankings: ConferenceRanking;

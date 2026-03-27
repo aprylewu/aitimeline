@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useState } from "react";
 import {
   eachMonthOfInterval,
   format,
@@ -31,11 +31,6 @@ interface TimelineGridProps {
 interface HoveredMilestone {
   conferenceId: string;
   milestone: Milestone;
-}
-
-interface DetailItem {
-  label: string;
-  value: ReactNode;
 }
 
 interface RangeSegment {
@@ -185,102 +180,136 @@ function formatConferenceDateRange(milestones: Milestone[]) {
     return format(parseISO(conferenceEnd.dateStart), "MMM d, yyyy");
   }
 
-  const startLabel = format(parseISO(conferenceStart!.dateStart), "MMM d, yyyy");
-  const endLabel = format(parseISO(conferenceEnd!.dateStart), "MMM d, yyyy");
+  const startDate = parseISO(conferenceStart!.dateStart);
+  const endDate = parseISO(conferenceEnd!.dateStart);
+
+  if (format(startDate, "yyyy-MM-dd") === format(endDate, "yyyy-MM-dd")) {
+    return format(startDate, "MMM d, yyyy");
+  }
+
+  if (format(startDate, "yyyy") === format(endDate, "yyyy")) {
+    if (format(startDate, "MMM") === format(endDate, "MMM")) {
+      return `${format(startDate, "MMM d")}-${format(endDate, "d, yyyy")}`;
+    }
+
+    return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
+  }
+
+  const startLabel = format(startDate, "MMM d, yyyy");
+  const endLabel = format(endDate, "MMM d, yyyy");
 
   return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
 }
 
-function getRankingNodes(conference: Conference) {
-  const rankingEntries = Object.entries(conference.rankings).filter(
+function getConferenceSummary(conference: Conference) {
+  const dateLabel = formatConferenceDateRange(conference.milestones);
+
+  return dateLabel === "TBA"
+    ? `Dates TBA, ${conference.location}`
+    : `${dateLabel}, ${conference.location}`;
+}
+
+function getRankingEntries(conference: Conference) {
+  return Object.entries(conference.rankings).filter(
     ([, value]) => value,
   );
-
-  if (rankingEntries.length === 0) {
-    return <span className="text-sm text-[var(--text-muted)]">Unranked</span>;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {rankingEntries.map(([key, value]) => (
-        <span
-          key={`${conference.id}-${key}`}
-          className="rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]"
-        >
-          {key} {value}
-        </span>
-      ))}
-    </div>
-  );
 }
 
-function renderDetailItem({ label, value }: DetailItem) {
-  return (
-    <div
-      key={label}
-      className="rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-3"
-    >
-      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-        {label}
-      </dt>
-      <dd className="mt-2 text-sm leading-6 text-[var(--text-primary)]">
-        {value}
-      </dd>
-    </div>
-  );
-}
+function ConferenceDetailStrip({
+  conference,
+  expanded,
+}: {
+  conference: Conference;
+  expanded: boolean;
+}) {
+  const rankingEntries = getRankingEntries(conference);
 
-function ConferenceDetailPanel({ conference }: { conference: Conference }) {
-  const detailItems: DetailItem[] = [
-    {
-      label: "Conference rankings",
-      value: getRankingNodes(conference),
-    },
-    {
-      label: "Conference type",
-      value: conference.category,
-    },
-    {
-      label: "Conference dates",
-      value: formatConferenceDateRange(conference.milestones),
-    },
-    {
-      label: "Location",
-      value: conference.location,
-    },
-    {
-      label: "Main page",
-      value: (
-        <a
-          href={conference.website}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="font-medium text-[var(--accent-primary)] underline decoration-[color-mix(in_srgb,var(--accent-primary)_40%,transparent)] underline-offset-4"
+  return (
+    <div className="conference-inline-strip flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+      <div className="min-w-0 flex-1">
+        <h3
+          aria-label={`${conference.shortName} ${conference.year}`}
+          className="flex items-baseline gap-2 whitespace-nowrap text-[15px] leading-5"
         >
-          Visit site
-        </a>
-      ),
-    },
-  ];
-
-  return (
-    <div className="conference-inline-panel rounded-[24px] border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-4 shadow-lg backdrop-blur md:p-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
-            Conference details
-          </p>
-          <h3 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-            {conference.shortName} {conference.year}
-          </h3>
-          <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-            {conference.title}
-          </p>
+          <span className="font-semibold tracking-tight text-[var(--accent-primary)]">
+            {conference.shortName}
+          </span>
+          <span className="font-mono text-[12px] font-medium tracking-[0.04em] text-[var(--text-muted)]">
+            {conference.year}
+          </span>
+        </h3>
+        <p className="mt-1 text-[13px] leading-5 text-[var(--text-primary)]">
+          {conference.title}
+        </p>
+        <p className="mt-1 text-[12px] leading-5 text-[var(--text-muted)]">
+          {getConferenceSummary(conference)}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
+          <span className="font-medium uppercase tracking-[0.08em]">
+            {conference.category}
+          </span>
+          {rankingEntries.length > 0 ? (
+            rankingEntries.map(([key, value]) => (
+              <span
+                key={`${conference.id}-${key}`}
+                className="font-medium text-[var(--text-primary)]"
+              >
+                <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                  {key}
+                </span>{" "}
+                {value}
+              </span>
+            ))
+          ) : (
+            <span className="font-medium text-[var(--text-muted)]">Unranked</span>
+          )}
         </div>
       </div>
-      <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {detailItems.map(renderDetailItem)}
-      </dl>
+      {conference.cfpUrl ? (
+        <a
+          href={conference.cfpUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          tabIndex={expanded ? 0 : -1}
+          className="inline-flex shrink-0 items-center justify-center rounded-[6px] bg-[var(--surface-bg)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-primary)] transition hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+        >
+          CFP
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function getDetailRowStateClass(isExpanded: boolean) {
+  return isExpanded
+    ? "grid-rows-[1fr] border-[var(--panel-border)] bg-[var(--surface-bg)]/60 px-4 py-2.5 opacity-100"
+    : "grid-rows-[0fr] border-transparent bg-transparent px-4 py-0 opacity-0";
+}
+
+function getDetailRowInnerClass(isExpanded: boolean) {
+  return isExpanded ? "translate-y-0" : "-translate-y-2";
+}
+
+function ConferenceDetailRow({
+  conference,
+  expanded,
+}: {
+  conference: Conference;
+  expanded: boolean;
+}) {
+  return (
+    <div
+      id={`conference-detail-row-${conference.id}`}
+      data-testid={`conference-detail-row-${conference.id}`}
+      data-expanded={String(expanded)}
+      aria-hidden={!expanded}
+      className={`conference-inline-row col-span-2 grid overflow-hidden border-b transition-[grid-template-rows,opacity,padding,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
+    >
+      <div
+        className={`conference-inline-row-inner min-h-0 overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowInnerClass(expanded)}`}
+      >
+        <ConferenceDetailStrip conference={conference} expanded={expanded} />
+      </div>
     </div>
   );
 }
@@ -476,15 +505,10 @@ export function TimelineGrid({
                         );
                       })}
                     </div>
-                    {showConferenceDetails ? (
-                      <div
-                        id={`conference-detail-row-${conference.id}`}
-                        data-testid={`conference-detail-row-${conference.id}`}
-                        className="col-span-2 border-b border-[var(--panel-border)] px-4 py-4"
-                      >
-                        <ConferenceDetailPanel conference={conference} />
-                      </div>
-                    ) : null}
+                    <ConferenceDetailRow
+                      conference={conference}
+                      expanded={showConferenceDetails}
+                    />
                   </Fragment>
                 );
               })}

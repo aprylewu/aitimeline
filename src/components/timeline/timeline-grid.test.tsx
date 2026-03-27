@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { TimelineGrid } from "./timeline-grid";
+
+const colmConference = conferences.find((conference) => conference.id === "colm-2026")!;
+const iclrConference = conferences.find((conference) => conference.id === "iclr-2026")!;
+const aclConference = conferences.find((conference) => conference.id === "acl-2026")!;
 
 function renderTimelineGrid(visibleConferences = conferences.slice(0, 1)) {
   render(
@@ -23,7 +27,7 @@ function renderTimelineGrid(visibleConferences = conferences.slice(0, 1)) {
 }
 
 it("renders a continuous primary path bar", () => {
-  renderTimelineGrid();
+  renderTimelineGrid([colmConference]);
 
   const path = screen.getByTestId("primary-path-colm-2026");
   expect(path).toHaveAttribute("data-path-start", "fullPaper");
@@ -33,7 +37,7 @@ it("renders a continuous primary path bar", () => {
 it("renders highlighted primary milestones and shows a tooltip on hover", async () => {
   const user = userEvent.setup();
 
-  renderTimelineGrid();
+  renderTimelineGrid([colmConference]);
 
   const fullPaperNode = screen.getByLabelText(/full paper/i);
   expect(fullPaperNode).toHaveAttribute("data-primary-path", "true");
@@ -45,28 +49,44 @@ it("renders highlighted primary milestones and shows a tooltip on hover", async 
   });
 });
 
-it("renders a separate today label and inline conference detail rows on click", async () => {
+it("renders a separate today label and a compact inline detail strip on click", async () => {
   const user = userEvent.setup();
 
-  renderTimelineGrid();
+  renderTimelineGrid([aclConference]);
+  const trigger = screen.getByTestId("conference-trigger-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
 
   expect(screen.getByTestId("today-label")).toHaveTextContent("Today");
-  expect(
-    screen.queryByTestId("conference-detail-row-colm-2026"),
-  ).not.toBeInTheDocument();
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(detailRow).toHaveAttribute("aria-hidden", "true");
 
-  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+  await user.click(trigger);
 
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+  expect(detailRow).toHaveAttribute("aria-hidden", "false");
   expect(
-    screen.getByTestId("conference-detail-row-colm-2026"),
+    within(detailRow).getByRole("heading", { name: /ACL 2026/i }),
   ).toBeInTheDocument();
-  expect(screen.getByText("Conference type")).toBeInTheDocument();
-  expect(screen.getByText("AI")).toBeInTheDocument();
-  expect(screen.getByText("Main page")).toBeInTheDocument();
+  expect(
+    within(detailRow).getByText(
+      /Annual Meeting of the Association for Computational Linguistics/i,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(detailRow).getByText(/Jul 26-31, 2026, San Diego, United States/i),
+  ).toBeInTheDocument();
+  expect(within(detailRow).getByText(/AI/i)).toBeInTheDocument();
+  expect(detailRow).toHaveTextContent(/ccf\s+A/i);
+  expect(detailRow).toHaveTextContent(/core\s+A\*/i);
+  expect(detailRow).toHaveTextContent(/thcpl\s+A/i);
+  expect(within(detailRow).getByRole("link", { name: /cfp/i })).toHaveAttribute(
+    "href",
+    expect.stringContaining("aclweb.org"),
+  );
 });
 
 it("renders a single continuous today line overlay", () => {
-  renderTimelineGrid(conferences.slice(0, 2));
+  renderTimelineGrid([colmConference, iclrConference]);
 
   expect(screen.getByTestId("today-line")).toBeInTheDocument();
 });
@@ -116,7 +136,7 @@ it("uses semantic tones for full paper, notification, rebuttal, and conference m
 });
 
 it("renders larger month labels for the shared axis", () => {
-  renderTimelineGrid();
+  renderTimelineGrid([colmConference]);
 
   expect(screen.getByText("Apr")).toHaveClass("text-[13px]");
 });
@@ -124,33 +144,45 @@ it("renders larger month labels for the shared axis", () => {
 it("allows multiple conference detail rows to stay expanded", async () => {
   const user = userEvent.setup();
 
-  renderTimelineGrid(conferences.slice(0, 2));
+  renderTimelineGrid([colmConference, iclrConference]);
 
   await user.click(screen.getByTestId("conference-trigger-colm-2026"));
-  await user.click(screen.getByTestId("conference-trigger-icml-2026"));
+  await user.click(screen.getByTestId("conference-trigger-iclr-2026"));
 
   expect(
     screen.getByTestId("conference-detail-row-colm-2026"),
-  ).toBeInTheDocument();
+  ).toHaveAttribute("aria-hidden", "false");
   expect(
-    screen.getByTestId("conference-detail-row-icml-2026"),
-  ).toBeInTheDocument();
+    screen.getByTestId("conference-detail-row-iclr-2026"),
+  ).toHaveAttribute("aria-hidden", "false");
 });
 
 it("collapses an expanded conference detail row when clicked again", async () => {
   const user = userEvent.setup();
 
-  renderTimelineGrid();
+  renderTimelineGrid([colmConference]);
 
   const trigger = screen.getByTestId("conference-trigger-colm-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-colm-2026");
 
   await user.click(trigger);
-  expect(
-    screen.getByTestId("conference-detail-row-colm-2026"),
-  ).toBeInTheDocument();
+  expect(detailRow).toHaveAttribute("aria-hidden", "false");
 
   await user.click(trigger);
+  expect(detailRow).toHaveAttribute("aria-hidden", "true");
+});
+
+it("hides the CFP action when a conference does not have a dedicated CFP url", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([iclrConference]);
+
+  await user.click(screen.getByTestId("conference-trigger-iclr-2026"));
+
   expect(
-    screen.queryByTestId("conference-detail-row-colm-2026"),
+    within(screen.getByTestId("conference-detail-row-iclr-2026")).queryByRole(
+      "link",
+      { name: /cfp/i },
+    ),
   ).not.toBeInTheDocument();
 });

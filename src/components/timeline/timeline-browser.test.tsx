@@ -19,7 +19,7 @@ it("renders one shared gantt surface and supports dark mode", async () => {
     screen.getByPlaceholderText(/search conferences/i),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "6M" })).toBeInTheDocument();
-  expect(screen.getByText(conferences[0]!.shortName)).toBeInTheDocument();
+  expect(screen.getAllByText(conferences[0]!.shortName).length).toBeGreaterThan(0);
   expect(screen.getAllByTestId("timeline-surface")).toHaveLength(1);
   expect(browser).toHaveAttribute("data-theme", "light");
 
@@ -45,14 +45,18 @@ it("shows active and past sections, a today marker, and inline details on click"
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
   expect(screen.queryByText("NeurIPS")).not.toBeInTheDocument();
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
-  expect(
-    screen.queryByTestId("conference-detail-row-colm-2026"),
-  ).not.toBeInTheDocument();
+  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
 
   await user.click(screen.getByTestId("conference-trigger-colm-2026"));
 
-  expect(
-    screen.getByTestId("conference-detail-row-colm-2026"),
-  ).toBeInTheDocument();
-  expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
+  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
+    "aria-hidden",
+    "false",
+  );
+  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveTextContent(
+    conferences[0]!.location,
+  );
 });

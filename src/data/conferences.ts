@@ -10,6 +10,7 @@ export const conferences: Conference[] = [
     shortName: "CoLM",
     year: 2026,
     website: "https://colmweb.org/",
+    cfpUrl: "https://colmweb.org/cfp.html",
     location: "San Francisco, United States",
     category: "AI",
     rankings: {
@@ -89,6 +90,7 @@ export const conferences: Conference[] = [
     shortName: "ICML",
     year: 2026,
     website: "https://icml.cc/Conferences/2026",
+    cfpUrl: "https://icml.cc/Conferences/2026/CallForPapers",
     location: "Seoul, South Korea",
     category: "AI",
     rankings: {
@@ -376,6 +378,7 @@ export const conferences: Conference[] = [
     shortName: "ACL",
     year: 2026,
     website: "https://2026.aclweb.org/",
+    cfpUrl: "https://2026.aclweb.org/calls/main_conference_papers/",
     location: "San Diego, United States",
     category: "AI",
     rankings: {
