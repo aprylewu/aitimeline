@@ -44,7 +44,7 @@ it("updates the visible rows when search and presets change", async () => {
 
   await user.type(screen.getByPlaceholderText(/search conferences/i), "icml");
 
-  expect(screen.getByText(/icml/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/icml/i).length).toBeGreaterThan(0);
   expect(screen.queryByText(/neurips/i)).not.toBeInTheDocument();
 });
 

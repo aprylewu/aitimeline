@@ -96,6 +96,18 @@ function getTickDates(range: { start: Date; end: Date }) {
   });
 }
 
+function toggleExpandedConference(current: Set<string>, conferenceId: string) {
+  const next = new Set(current);
+
+  if (next.has(conferenceId)) {
+    next.delete(conferenceId);
+  } else {
+    next.add(conferenceId);
+  }
+
+  return next;
+}
+
 function getMilestoneTone(type: MilestoneType): TimelineTone {
   if (type === "fullPaper") {
     return "fullPaper";
@@ -152,6 +164,153 @@ function isWithinVisibleRange(value: Date, range: { start: Date; end: Date }) {
   return !isBefore(value, range.start) && !isAfter(value, range.end);
 }
 
+function formatConferenceDateRange(milestones: Milestone[]) {
+  const conferenceStart = findMilestone(milestones, "conferenceStart");
+  const conferenceEnd = findMilestone(milestones, "conferenceEnd");
+
+  if (!conferenceStart && !conferenceEnd) {
+    return "TBA";
+  }
+
+  if (conferenceStart && !conferenceEnd) {
+    return format(parseISO(conferenceStart.dateStart), "MMM d, yyyy");
+  }
+
+  if (!conferenceStart && conferenceEnd) {
+    return format(parseISO(conferenceEnd.dateStart), "MMM d, yyyy");
+  }
+
+  const startDate = parseISO(conferenceStart!.dateStart);
+  const endDate = parseISO(conferenceEnd!.dateStart);
+
+  if (format(startDate, "yyyy-MM-dd") === format(endDate, "yyyy-MM-dd")) {
+    return format(startDate, "MMM d, yyyy");
+  }
+
+  if (format(startDate, "yyyy") === format(endDate, "yyyy")) {
+    if (format(startDate, "MMM") === format(endDate, "MMM")) {
+      return `${format(startDate, "MMM d")}-${format(endDate, "d, yyyy")}`;
+    }
+
+    return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
+  }
+
+  const startLabel = format(startDate, "MMM d, yyyy");
+  const endLabel = format(endDate, "MMM d, yyyy");
+
+  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+}
+
+function getConferenceSummary(conference: Conference) {
+  const dateLabel = formatConferenceDateRange(conference.milestones);
+
+  return dateLabel === "TBA"
+    ? `Dates TBA, ${conference.location}`
+    : `${dateLabel}, ${conference.location}`;
+}
+
+function getRankingEntries(conference: Conference) {
+  return Object.entries(conference.rankings).filter(
+    ([, value]) => value,
+  );
+}
+
+function ConferenceDetailStrip({
+  conference,
+  expanded,
+}: {
+  conference: Conference;
+  expanded: boolean;
+}) {
+  const rankingEntries = getRankingEntries(conference);
+
+  return (
+    <div className="conference-inline-strip flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span
+            data-testid={`conference-detail-title-${conference.id}`}
+            className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
+          >
+            {conference.title}
+          </span>
+          <span
+            data-testid={`conference-detail-summary-${conference.id}`}
+            className="text-[12px] leading-5 text-[var(--text-muted)]"
+          >
+            {getConferenceSummary(conference)}
+          </span>
+        </div>
+        {conference.cfpUrl ? (
+          <a
+            href={conference.cfpUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            tabIndex={expanded ? 0 : -1}
+            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+          >
+            Call For Papers
+          </a>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
+        {rankingEntries.length > 0 ? (
+          rankingEntries.map(([key, value]) => (
+            <span
+              key={`${conference.id}-${key}`}
+              className="font-medium text-[var(--text-primary)]"
+            >
+              <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                {key}
+              </span>{" "}
+              {value}
+            </span>
+          ))
+        ) : (
+          <span className="font-medium text-[var(--text-muted)]">Unranked</span>
+        )}
+        <span className="font-medium uppercase tracking-[0.08em]">
+          {conference.category}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function getDetailRowStateClass(isExpanded: boolean) {
+  return isExpanded
+    ? "grid-rows-[1fr] border-[var(--panel-border)] bg-[var(--surface-bg)]/60 px-4 py-2.5 opacity-100"
+    : "grid-rows-[0fr] border-transparent bg-transparent px-4 py-0 opacity-0";
+}
+
+function getDetailRowInnerClass(isExpanded: boolean) {
+  return isExpanded ? "translate-y-0" : "-translate-y-2";
+}
+
+function ConferenceDetailRow({
+  conference,
+  expanded,
+}: {
+  conference: Conference;
+  expanded: boolean;
+}) {
+  return (
+    <div
+      id={`conference-detail-row-${conference.id}`}
+      data-testid={`conference-detail-row-${conference.id}`}
+      data-expanded={String(expanded)}
+      aria-hidden={!expanded}
+      className={`conference-inline-row col-span-2 grid overflow-hidden border-b transition-[grid-template-rows,opacity,padding,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
+    >
+      <div
+        className={`conference-inline-row-inner min-h-0 overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowInnerClass(expanded)}`}
+      >
+        <ConferenceDetailStrip conference={conference} expanded={expanded} />
+      </div>
+    </div>
+  );
+}
+
 export function TimelineGrid({
   sections,
   visibleRange,
@@ -159,8 +318,8 @@ export function TimelineGrid({
 }: TimelineGridProps) {
   const [hoveredMilestone, setHoveredMilestone] =
     useState<HoveredMilestone | null>(null);
-  const [hoveredConferenceId, setHoveredConferenceId] = useState<string | null>(
-    null,
+  const [expandedConferenceIds, setExpandedConferenceIds] = useState<Set<string>>(
+    () => new Set(),
   );
   const ticks = getTickDates(visibleRange);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
@@ -215,33 +374,31 @@ export function TimelineGrid({
                 const lastPrimaryMilestone =
                   primaryPathMilestones[primaryPathMilestones.length - 1];
                 const rangeSegments = getRangeSegments(conference.milestones);
-                const showConferenceDetails =
-                  hoveredConferenceId === conference.id;
+                const showConferenceDetails = expandedConferenceIds.has(
+                  conference.id,
+                );
 
                 return (
                   <Fragment key={conference.id}>
-                    <div
-                      className="timeline-meta-cell relative border-b border-[var(--panel-border)] px-4 py-2"
-                      onMouseEnter={() => setHoveredConferenceId(conference.id)}
-                      onMouseLeave={() => setHoveredConferenceId(null)}
-                    >
+                    <div className="timeline-meta-cell relative flex min-h-[56px] items-center justify-center border-b border-[var(--panel-border)] px-3 py-1.5">
                       <button
                         type="button"
                         data-testid={`conference-trigger-${conference.id}`}
-                        onFocus={() => setHoveredConferenceId(conference.id)}
-                        onBlur={() => setHoveredConferenceId(null)}
-                        className="conference-trigger cursor-pointer text-left outline-none"
+                        aria-expanded={showConferenceDetails}
+                        aria-controls={`conference-detail-row-${conference.id}`}
+                        onClick={() =>
+                          setExpandedConferenceIds((current) =>
+                            toggleExpandedConference(current, conference.id),
+                          )
+                        }
+                        className={`conference-trigger ${showConferenceDetails ? "conference-trigger--expanded" : "conference-trigger--collapsed"} flex h-full w-full items-center justify-center text-center outline-none`}
                       >
-                        <ConferenceMetaColumn conference={conference} compact />
+                        <ConferenceMetaColumn
+                          conference={conference}
+                          compact
+                          expanded={showConferenceDetails}
+                        />
                       </button>
-                      {showConferenceDetails ? (
-                        <div
-                          data-testid={`conference-detail-card-${conference.id}`}
-                          className="conference-detail-card absolute top-1/2 left-3 z-30 w-80 rounded-2xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-4 shadow-xl backdrop-blur"
-                        >
-                          <ConferenceMetaColumn conference={conference} />
-                        </div>
-                      ) : null}
                     </div>
                     <div className="timeline-row border-b border-[var(--panel-border)] px-4">
                       <div className="timeline-row-grid pointer-events-none absolute inset-0" />
@@ -345,6 +502,10 @@ export function TimelineGrid({
                         );
                       })}
                     </div>
+                    <ConferenceDetailRow
+                      conference={conference}
+                      expanded={showConferenceDetails}
+                    />
                   </Fragment>
                 );
               })}
