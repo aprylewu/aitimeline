@@ -18,11 +18,11 @@ export function ConferenceMetaColumn({
   if (compact) {
     return (
       <div className="flex w-full items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="conference-trigger-title text-[11px] font-semibold tracking-[0.04em] text-[var(--text-primary)]">
+        <div className="flex min-w-0 items-baseline gap-2 whitespace-nowrap">
+          <p className="conference-trigger-title text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">
             {conference.shortName}
           </p>
-          <p className="conference-trigger-year mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          <p className="conference-trigger-year font-mono text-[11px] font-medium tracking-[0.04em] text-[var(--text-muted)]">
             {conference.year}
           </p>
         </div>

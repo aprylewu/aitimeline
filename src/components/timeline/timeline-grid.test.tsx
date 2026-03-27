@@ -59,30 +59,30 @@ it("renders a separate today label and a compact inline detail strip on click", 
   expect(screen.getByTestId("today-label")).toHaveTextContent("Today");
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(detailRow).toHaveAttribute("aria-hidden", "true");
+  expect(within(trigger).getByText("ACL")).toBeInTheDocument();
+  expect(within(trigger).getByText("2026")).toBeInTheDocument();
 
   await user.click(trigger);
 
   expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(detailRow).toHaveAttribute("aria-hidden", "false");
   expect(
-    within(detailRow).getByRole("heading", { name: /ACL 2026/i }),
-  ).toBeInTheDocument();
-  expect(
     within(detailRow).getByText(
       /Annual Meeting of the Association for Computational Linguistics/i,
     ),
   ).toBeInTheDocument();
   expect(
-    within(detailRow).getByText(/Jul 26-31, 2026, San Diego, United States/i),
+    within(detailRow).getByText(
+      /Jul 26-31, 2026, San Diego, United States/i,
+    ),
   ).toBeInTheDocument();
-  expect(within(detailRow).getByText(/AI/i)).toBeInTheDocument();
   expect(detailRow).toHaveTextContent(/ccf\s+A/i);
   expect(detailRow).toHaveTextContent(/core\s+A\*/i);
   expect(detailRow).toHaveTextContent(/thcpl\s+A/i);
-  expect(within(detailRow).getByRole("link", { name: /cfp/i })).toHaveAttribute(
-    "href",
-    expect.stringContaining("aclweb.org"),
-  );
+  expect(within(detailRow).getByText(/^AI$/i)).toBeInTheDocument();
+  expect(
+    within(detailRow).getByRole("link", { name: /call for papers/i }),
+  ).toHaveAttribute("href", expect.stringContaining("aclweb.org"));
 });
 
 it("renders a single continuous today line overlay", () => {
@@ -182,7 +182,7 @@ it("hides the CFP action when a conference does not have a dedicated CFP url", a
   expect(
     within(screen.getByTestId("conference-detail-row-iclr-2026")).queryByRole(
       "link",
-      { name: /cfp/i },
+      { name: /call for papers/i },
     ),
   ).not.toBeInTheDocument();
 });

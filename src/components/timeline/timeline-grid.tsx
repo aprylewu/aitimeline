@@ -225,29 +225,17 @@ function ConferenceDetailStrip({
   const rankingEntries = getRankingEntries(conference);
 
   return (
-    <div className="conference-inline-strip flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+    <div className="conference-inline-strip flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-6">
       <div className="min-w-0 flex-1">
-        <h3
-          aria-label={`${conference.shortName} ${conference.year}`}
-          className="flex items-baseline gap-2 whitespace-nowrap text-[15px] leading-5"
-        >
-          <span className="font-semibold tracking-tight text-[var(--accent-primary)]">
-            {conference.shortName}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-[13px] font-medium leading-5 text-[var(--text-primary)]">
+            {conference.title}
           </span>
-          <span className="font-mono text-[12px] font-medium tracking-[0.04em] text-[var(--text-muted)]">
-            {conference.year}
+          <span className="text-[12px] leading-5 text-[var(--text-muted)]">
+            {getConferenceSummary(conference)}
           </span>
-        </h3>
-        <p className="mt-1 text-[13px] leading-5 text-[var(--text-primary)]">
-          {conference.title}
-        </p>
-        <p className="mt-1 text-[12px] leading-5 text-[var(--text-muted)]">
-          {getConferenceSummary(conference)}
-        </p>
+        </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
-          <span className="font-medium uppercase tracking-[0.08em]">
-            {conference.category}
-          </span>
           {rankingEntries.length > 0 ? (
             rankingEntries.map(([key, value]) => (
               <span
@@ -263,6 +251,9 @@ function ConferenceDetailStrip({
           ) : (
             <span className="font-medium text-[var(--text-muted)]">Unranked</span>
           )}
+          <span className="font-medium uppercase tracking-[0.08em]">
+            {conference.category}
+          </span>
         </div>
       </div>
       {conference.cfpUrl ? (
@@ -271,9 +262,9 @@ function ConferenceDetailStrip({
           target="_blank"
           rel="noreferrer noopener"
           tabIndex={expanded ? 0 : -1}
-          className="inline-flex shrink-0 items-center justify-center rounded-[6px] bg-[var(--surface-bg)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-primary)] transition hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+          className="inline-flex shrink-0 items-center justify-center self-start rounded-full bg-[var(--surface-bg)] px-4 py-1.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] transition hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
         >
-          CFP
+          Call For Papers
         </a>
       ) : null}
     </div>
