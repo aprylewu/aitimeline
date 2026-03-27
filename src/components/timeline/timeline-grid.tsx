@@ -30,6 +30,7 @@ interface TimelineGridProps {
     end: Date;
   };
   now: Date;
+  viewerTimeZone?: string;
 }
 
 interface HoveredMilestone {
@@ -353,6 +354,7 @@ export function TimelineGrid({
   sections,
   visibleRange,
   now,
+  viewerTimeZone,
 }: TimelineGridProps) {
   const [hoveredMilestone, setHoveredMilestone] =
     useState<HoveredMilestone | null>(null);
@@ -581,6 +583,15 @@ export function TimelineGrid({
                         );
                       })}
                       {conference.milestones.map((milestone) => {
+                        if (
+                          !isWithinVisibleRange(
+                            parseISO(milestone.dateStart),
+                            visibleRange,
+                          )
+                        ) {
+                          return null;
+                        }
+
                         const left = getPositionPercent(
                           parseISO(milestone.dateStart),
                           visibleRange,
@@ -625,6 +636,8 @@ export function TimelineGrid({
                                 conference={conference}
                                 milestone={milestone}
                                 left={left}
+                                now={now}
+                                viewerTimeZone={viewerTimeZone}
                               />
                             ) : null}
                           </button>

@@ -15,6 +15,7 @@ import type {
 interface TimelineBrowserProps {
   conferences: Conference[];
   now: Date;
+  viewerTimeZone?: string;
 }
 
 const DESKTOP_BREAKPOINT = 1024;
@@ -78,7 +79,11 @@ function getAllRange(conferences: Conference[]) {
   };
 }
 
-export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
+export function TimelineBrowser({
+  conferences,
+  now,
+  viewerTimeZone,
+}: TimelineBrowserProps) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -301,6 +306,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
                 ]}
                 visibleRange={visibleRange}
                 now={now}
+                viewerTimeZone={viewerTimeZone}
               />
             </div>
             {visibleConferenceCount === 0 ? (

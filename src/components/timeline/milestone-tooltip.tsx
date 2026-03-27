@@ -1,32 +1,48 @@
-import { format, parseISO } from "date-fns";
+import { useEffect, useState } from "react";
 import type { Conference, Milestone } from "@/types/conference";
+import {
+  formatCountdown,
+  formatMilestoneDateLabel,
+  getMilestoneInstant,
+} from "@/lib/timeline/milestone-time";
 
 interface MilestoneTooltipProps {
   conference: Conference;
   milestone: Milestone;
   left: number;
-}
-
-function formatDateLabel(milestone: Milestone) {
-  const start = format(parseISO(milestone.dateStart), "MMM d, yyyy");
-
-  if (!milestone.dateEnd) {
-    return start;
-  }
-
-  const end = format(parseISO(milestone.dateEnd), "MMM d, yyyy");
-  return `${start} - ${end}`;
+  now: Date;
+  viewerTimeZone?: string;
 }
 
 export function MilestoneTooltip({
   conference,
   milestone,
   left,
+  now,
+  viewerTimeZone,
 }: MilestoneTooltipProps) {
+  const [currentNow, setCurrentNow] = useState(now);
+  const milestoneInstant = getMilestoneInstant(milestone, viewerTimeZone);
+  const countdown = formatCountdown(milestoneInstant, currentNow);
+
+  useEffect(() => {
+    setCurrentNow(now);
+  }, [now]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setCurrentNow(new Date());
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   return (
     <div
       data-testid="milestone-tooltip"
-      className="pointer-events-none absolute top-0 left-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+12px)] rounded-2xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] px-4 py-3 text-left shadow-lg backdrop-blur"
+      className="pointer-events-none absolute top-0 left-0 z-30 -translate-x-1/2 -translate-y-[calc(100%+12px)] rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-4 py-3 text-left shadow-lg backdrop-blur"
       style={{ left: `${left}%`, minWidth: "20rem" }}
       role="tooltip"
       aria-live="polite"
@@ -38,7 +54,10 @@ export function MilestoneTooltip({
         {milestone.label}
       </p>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {formatDateLabel(milestone)}
+        {formatMilestoneDateLabel(milestone, viewerTimeZone)}
+      </p>
+      <p className="mt-1 text-xs font-semibold text-[var(--accent-secondary)]">
+        {countdown}
       </p>
       {milestone.note ? (
         <p className="mt-1 max-w-72 text-xs leading-5 text-[var(--text-muted)]">

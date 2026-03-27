@@ -5,6 +5,7 @@ import { organizeConferenceSections } from "@/lib/timeline/sections";
 import { TimelineGrid } from "./timeline-grid";
 
 const colmConference = conferences.find((conference) => conference.id === "colm-2026")!;
+const icmlConference = conferences.find((conference) => conference.id === "icml-2026")!;
 const iclrConference = conferences.find((conference) => conference.id === "iclr-2026")!;
 const aclConference = conferences.find((conference) => conference.id === "acl-2026")!;
 const sigmodConference = conferences.find((conference) => conference.id === "sigmod-2026")!;
@@ -253,6 +254,51 @@ it("uses the same month cell layout for the shared axis and each row grid", () =
   expect(axisMonthCell).toHaveClass("absolute");
   expect(rowMonthCell).toHaveClass("absolute");
   expect(screen.getByText(/^Feb$/)).toHaveClass("-translate-x-1/2");
+});
+
+it("does not render milestone markers that fall outside the visible range", () => {
+  renderTimelineGridWithRange({
+    visibleConferences: [icmlConference],
+    visibleRange: {
+      start: new Date("2026-02-01T00:00:00Z"),
+      end: new Date("2026-08-01T00:00:00Z"),
+    },
+  });
+
+  expect(screen.queryByLabelText("Full paper")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Notification")).toBeInTheDocument();
+});
+
+it("shows an AoE countdown and keeps the tooltip above the today overlay", async () => {
+  const user = userEvent.setup();
+
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: [colmConference],
+        },
+      ]}
+      visibleRange={{
+        start: new Date("2026-01-01T00:00:00Z"),
+        end: new Date("2026-12-31T00:00:00Z"),
+      }}
+      now={new Date("2026-03-26T00:00:00Z")}
+      viewerTimeZone="Asia/Shanghai"
+    />,
+  );
+
+  await user.hover(screen.getByLabelText("Full paper"));
+
+  const tooltip = screen.getByTestId("milestone-tooltip");
+
+  expect(tooltip).toHaveTextContent("T-6d 11h");
+  expect(tooltip).toHaveTextContent("Your time");
+  expect(tooltip).toHaveTextContent("GMT+8");
+  expect(tooltip).toHaveClass("z-30");
+  expect(screen.getByTestId("today-overlay")).toHaveClass("z-0");
 });
 
 it("removes the legacy gray row baseline from timeline rows", () => {
