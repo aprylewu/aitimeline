@@ -4,10 +4,10 @@
   --page-bg: #f6f3ed;
   --surface-bg: rgba(255, 252, 247, 0.88);
   --surface-elevated: rgba(255, 255, 255, 0.92);
-  --controls-bg: rgba(250, 247, 242, 0.8);
+  --controls-bg: #f6f3ed;
   --input-bg: rgba(255, 255, 255, 0.72);
-  --tooltip-bg: rgba(255, 255, 255, 0.95);
-  --panel-border: rgba(15, 23, 42, 0.08);
+  --tooltip-bg: #fffcf7;
+  --panel-border: rgba(15, 23, 42, 0.1);
   --chip-bg: rgba(255, 255, 255, 0.68);
   --chip-active-bg: rgba(226, 232, 240, 0.88);
   --chip-border: rgba(15, 23, 42, 0.1);
@@ -35,9 +35,9 @@
   --page-bg: #070b14;
   --surface-bg: rgba(12, 18, 31, 0.88);
   --surface-elevated: rgba(17, 24, 39, 0.94);
-  --controls-bg: rgba(7, 11, 20, 0.86);
+  --controls-bg: #0a0f1a;
   --input-bg: rgba(15, 23, 42, 0.84);
-  --tooltip-bg: rgba(12, 18, 31, 0.96);
+  --tooltip-bg: #0c121f;
   --panel-border: rgba(148, 163, 184, 0.18);
   --chip-bg: rgba(15, 23, 42, 0.72);
   --chip-active-bg: rgba(30, 41, 59, 0.96);
@@ -68,39 +68,30 @@ html {
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.16), transparent 28%),
-    linear-gradient(180deg, color-mix(in srgb, var(--page-bg) 78%, white) 0%, var(--page-bg) 100%);
+  background: var(--page-bg);
   color: var(--text-primary);
   font-family:
-    "Atkinson Hyperlegible",
+    var(--font-body),
     "SF Pro Display",
     "Helvetica Neue",
     "Segoe UI",
     sans-serif;
 }
 
-.timeline-browser {
-  background:
-    radial-gradient(circle at top right, rgba(96, 165, 250, 0.08), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--page-bg) 84%, white) 0%, var(--page-bg) 100%);
-}
-
 .timeline-shell {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 88%, transparent) 0%, var(--surface-bg) 100%);
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.08);
+  background: var(--surface-bg);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .timeline-meta-head,
 .timeline-meta-cell {
-  background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
+  background: color-mix(in srgb, var(--surface-bg) 96%, transparent);
 }
 
 .timeline-axis,
 .timeline-row {
   position: relative;
-  background: color-mix(in srgb, var(--surface-bg) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-bg) 80%, transparent);
 }
 
 .timeline-axis {
@@ -132,21 +123,21 @@ body {
   position: absolute;
   top: 8px;
   z-index: 1;
-  border: 1px solid color-mix(in srgb, var(--accent-secondary) 22%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 30%, transparent);
+  border-radius: 4px;
+  background: var(--surface-elevated);
   padding: 2px 8px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-secondary);
   white-space: nowrap;
-  transform: translateX(10px);
+  transform: translateX(6px);
 }
 
 .timeline-row {
-  height: 56px;
+  height: 64px;
 }
 
 .timeline-row-grid {
@@ -169,25 +160,17 @@ body {
 
 .timeline-marker:hover,
 .timeline-marker:focus-visible {
-  box-shadow: 0 10px 24px var(--grid-glow);
+  box-shadow: 0 4px 12px var(--grid-glow);
   border-color: color-mix(in srgb, var(--timeline-neutral) 38%, var(--panel-border));
 }
 
 .conference-trigger {
-  transition: transform 160ms ease;
+  transition: color 160ms ease;
 }
 
 .conference-trigger-title,
 .conference-trigger-year {
-  transition:
-    transform 160ms ease,
-    color 160ms ease,
-    letter-spacing 160ms ease;
-}
-
-.conference-trigger:hover,
-.conference-trigger:focus-visible {
-  transform: translateX(2px);
+  transition: color 160ms ease;
 }
 
 .conference-trigger:hover .conference-trigger-title,
@@ -198,19 +181,18 @@ body {
 .conference-trigger:hover .conference-trigger-year,
 .conference-trigger:focus-visible .conference-trigger-year {
   color: var(--text-primary);
-  letter-spacing: 0.18em;
 }
 
 .conference-detail-card {
   transform: translateY(-50%);
   transform-origin: left center;
-  animation: conference-card-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: conference-card-enter 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes conference-card-enter {
   from {
     opacity: 0;
-    transform: translate(-8px, -50%) scale(0.985);
+    transform: translate(-4px, -50%) scale(0.99);
   }
 
   to {
@@ -220,12 +202,8 @@ body {
 }
 
 @media (max-width: 900px) {
-  .timeline-shell {
-    border-radius: 22px;
-  }
-
   .timeline-row {
-    height: 60px;
+    height: 68px;
   }
 }
 

@@ -13,7 +13,7 @@ it("updates the visible rows when search and presets change", async () => {
     />,
   );
 
-  expect(screen.getByRole("button", { name: "AI" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "AI / ML" })).toBeInTheDocument();
   expect(
     within(
       screen.getByRole("group", { name: /milestone filters/i }),

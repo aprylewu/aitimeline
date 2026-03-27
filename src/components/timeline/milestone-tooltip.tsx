@@ -26,7 +26,7 @@ export function MilestoneTooltip({
   return (
     <div
       data-testid="milestone-tooltip"
-      className="pointer-events-none absolute top-0 left-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+12px)] rounded-2xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] px-4 py-3 text-left shadow-lg backdrop-blur"
+      className="pointer-events-none absolute top-0 left-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+12px)] rounded-xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] px-4 py-3 text-left shadow-lg"
       style={{ left: `${left}%`, minWidth: "20rem" }}
       role="tooltip"
       aria-live="polite"

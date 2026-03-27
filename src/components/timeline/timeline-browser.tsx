@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addMonths, parseISO, subMonths } from "date-fns";
+import { addMonths, format, parseISO, subMonths } from "date-fns";
 import { ControlsBar } from "./controls-bar";
 import { TimelineGrid } from "./timeline-grid";
 import { getDefaultVisibleRange } from "@/lib/timeline/date-range";
@@ -26,6 +26,13 @@ const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
   "conferenceStart",
   "conferenceEnd",
 ];
+
+const LEGEND_ITEMS = [
+  { label: "Submission", variable: "--timeline-full-paper" },
+  { label: "Rebuttal", variable: "--timeline-rebuttal" },
+  { label: "Decision", variable: "--timeline-notification" },
+  { label: "Conference", variable: "--timeline-conference" },
+] as const;
 
 function toggleSetValue<T>(current: Set<T>, value: T) {
   const next = new Set(current);
@@ -65,6 +72,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
   const [visibleMilestoneTypes, setVisibleMilestoneTypes] = useState(
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
   );
+  const defaultVisibleRange = getDefaultVisibleRange(now);
 
   const availableCategories = Array.from(
     new Set(conferences.map((conference) => conference.category)),
@@ -91,6 +99,13 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     });
   }
 
+  function clearAllFilters() {
+    setQuery("");
+    setCategories(new Set());
+    setVisibleMilestoneTypes(new Set(DEFAULT_VISIBLE_MILESTONE_TYPES));
+    setVisibleRange(defaultVisibleRange);
+  }
+
   const sections = organizeConferenceSections({
     conferences,
     query,
@@ -100,6 +115,17 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     now,
   });
   const visibleConferenceCount = sections.active.length + sections.past.length;
+  const hasMilestoneFilter = availableMilestoneTypes.some(
+    (type) => !visibleMilestoneTypes.has(type),
+  );
+  const hasVisibleRangeFilter =
+    visibleRange.start.getTime() !== defaultVisibleRange.start.getTime() ||
+    visibleRange.end.getTime() !== defaultVisibleRange.end.getTime();
+  const hasActiveFilters =
+    query.trim().length > 0 ||
+    categories.size > 0 ||
+    hasMilestoneFilter ||
+    hasVisibleRangeFilter;
 
   return (
     <main
@@ -127,21 +153,39 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
         }
       />
       <section className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
-        <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
-            Focus on the submission to decision chain
+        <div className="mb-5">
+          <p className="text-xs font-medium text-[var(--text-muted)]">
+            {visibleConferenceCount} venue{visibleConferenceCount !== 1 ? "s" : ""}
+            {" · "}
+            {format(visibleRange.start, "MMM yyyy")}
+            {" – "}
+            {format(visibleRange.end, "MMM yyyy")}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="mt-1.5 text-3xl font-bold tracking-tight md:text-4xl">
             2026 Conference Timeline
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">
-            Shared gantt view for submission, rebuttal visibility, and final
-            decisions across active venues.
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+            Deadlines, rebuttals, and decisions at a glance across active
+            venues.
           </p>
+          <div
+            data-testid="timeline-legend"
+            className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[var(--text-muted)]"
+          >
+            {LEGEND_ITEMS.map((item) => (
+              <span key={item.label} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: `var(${item.variable})` }}
+                />
+                {item.label}
+              </span>
+            ))}
+          </div>
         </div>
         <div
           data-testid="timeline-surface"
-          className="timeline-shell overflow-x-auto rounded-[28px] border border-[var(--panel-border)]"
+          className="timeline-shell overflow-x-auto rounded-2xl border border-[var(--panel-border)]"
         >
           <TimelineGrid
             sections={[
@@ -153,8 +197,19 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
           />
         </div>
         {visibleConferenceCount === 0 ? (
-          <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No conferences match the current filters.
+          <div className="mt-4 rounded-lg border border-[var(--panel-border)] bg-[var(--surface-bg)] px-5 py-4">
+            <p className="text-sm text-[var(--text-muted)]">
+              No conferences match the current filters.
+            </p>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="mt-2 cursor-pointer text-sm font-medium text-[var(--accent-primary)] transition hover:underline"
+              >
+                Clear all filters
+              </button>
+            ) : null}
           </div>
         ) : null}
       </section>

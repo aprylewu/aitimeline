@@ -50,3 +50,44 @@ it("shows active and past sections, a today marker, and hover details", async ()
 
   expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
 });
+
+it("shows the clear action for non-default preset and milestone filters", async () => {
+  const user = userEvent.setup();
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2025-06-20T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByText("CHI")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "3M" }));
+
+  expect(
+    screen.getByText("No conferences match the current filters."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /clear all filters/i }),
+  ).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /clear all filters/i }));
+
+  expect(screen.getByText("CHI")).toBeInTheDocument();
+
+  const milestoneButtons = screen.getAllByRole("button", {
+    pressed: true,
+  });
+
+  for (const button of milestoneButtons) {
+    await user.click(button);
+  }
+
+  expect(
+    screen.getByText("No conferences match the current filters."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /clear all filters/i }),
+  ).toBeInTheDocument();
+});

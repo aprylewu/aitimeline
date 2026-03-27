@@ -38,7 +38,6 @@ interface RangeSegment {
   key: string;
   start: string;
   tone: TimelineTone;
-  top: string;
 }
 
 type TimelineTone =
@@ -73,8 +72,7 @@ function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
           key: "rebuttal",
           start: rebuttalStart.dateStart,
           end: rebuttalEnd.dateStart,
-          tone: "rebuttal",
-          top: "top-[22px]",
+          tone: "rebuttal" as TimelineTone,
         }
       : null,
     conferenceStart && conferenceEnd
@@ -82,8 +80,7 @@ function getRangeSegments(milestones: Milestone[]): RangeSegment[] {
           key: "conference",
           start: conferenceStart.dateStart,
           end: conferenceEnd.dateStart,
-          tone: "conference",
-          top: "top-[22px]",
+          tone: "conference" as TimelineTone,
         }
       : null,
   ].filter(Boolean) as RangeSegment[];
@@ -130,11 +127,11 @@ function getToneClass(tone: TimelineTone, variant: "marker" | "range") {
   }
 
   if (tone === "fullPaper") {
-    return "border-[#16a34a] bg-[#16a34a]";
+    return "border-[var(--timeline-full-paper)] bg-[var(--timeline-full-paper)]";
   }
 
   if (tone === "notification") {
-    return "border-[#dc2626] bg-[#dc2626]";
+    return "border-[var(--timeline-notification)] bg-[var(--timeline-notification)]";
   }
 
   if (tone === "rebuttal") {
@@ -169,7 +166,7 @@ export function TimelineGrid({
   return (
     <div className="relative min-w-[980px]">
       <div className="grid grid-cols-[180px_minmax(0,1fr)]">
-        <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+        <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--text-muted)]">
           Venue
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
@@ -199,7 +196,7 @@ export function TimelineGrid({
           return (
             <Fragment key={section.id}>
               <div
-                className="timeline-section-label border-b border-[var(--panel-border)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]"
+                className="timeline-section-label border-b border-[var(--panel-border)] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]"
               >
                 {section.label}
               </div>
@@ -237,7 +234,7 @@ export function TimelineGrid({
                       {showConferenceDetails ? (
                         <div
                           data-testid={`conference-detail-card-${conference.id}`}
-                          className="conference-detail-card absolute top-1/2 left-3 z-30 w-80 rounded-2xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-4 shadow-xl backdrop-blur"
+                          className="conference-detail-card absolute top-1/2 left-3 z-30 w-80 rounded-xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-4 shadow-lg"
                         >
                           <ConferenceMetaColumn conference={conference} />
                         </div>
@@ -245,13 +242,13 @@ export function TimelineGrid({
                     </div>
                     <div className="timeline-row border-b border-[var(--panel-border)] px-4">
                       <div className="timeline-row-grid pointer-events-none absolute inset-0" />
-                      <div className="absolute top-[25px] left-0 right-0 h-[2px] bg-[var(--path-baseline)]" />
+                      <div className="absolute top-[31px] left-0 right-0 h-[2px] bg-[var(--path-baseline)]" />
                       {firstPrimaryMilestone && lastPrimaryMilestone ? (
                         <div
                           data-testid={`primary-path-${conference.id}`}
                           data-path-start={firstPrimaryMilestone.type}
                           data-path-end={lastPrimaryMilestone.type}
-                          className="absolute top-[22px] h-[8px] rounded-full bg-[var(--path-track)]"
+                          className="absolute top-[28px] h-[8px] rounded-full bg-[var(--path-track)]"
                           style={{
                             left: `${getPositionPercent(
                               parseISO(firstPrimaryMilestone.dateStart),
@@ -286,7 +283,7 @@ export function TimelineGrid({
                             data-testid={`range-${conference.id}-${segment.key}`}
                             data-tone={segment.tone}
                             key={`${conference.id}-${segment.key}`}
-                            className={`absolute h-[8px] rounded-full ${getToneClass(segment.tone, "range")} ${segment.top}`}
+                            className={`absolute top-[28px] h-[8px] rounded-full ${getToneClass(segment.tone, "range")}`}
                             style={{
                               left: `${left}%`,
                               width: `${Math.max(1.5, right - left)}%`,
@@ -328,11 +325,17 @@ export function TimelineGrid({
                               })
                             }
                             onBlur={() => setHoveredMilestone(null)}
-                            className="timeline-marker absolute top-[14px] h-6 w-6 -translate-x-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)]"
+                            className={`timeline-marker absolute -translate-x-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] ${
+                              isPrimaryPath
+                                ? "top-[20px] h-6 w-6"
+                                : "top-[24px] h-4 w-4 opacity-70"
+                            }`}
                             style={{ left: `${left}%` }}
                           >
                             <span
-                              className={`absolute inset-[4px] rounded-full ${getToneClass(tone, "marker")}`}
+                              className={`absolute rounded-full ${getToneClass(tone, "marker")} ${
+                                isPrimaryPath ? "inset-[4px]" : "inset-[3px]"
+                              }`}
                             />
                             {isHovered ? (
                               <MilestoneTooltip
