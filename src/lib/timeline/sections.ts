@@ -1,4 +1,5 @@
 import { isBefore } from "date-fns";
+import { getPrimaryPathTypes } from "./key-path";
 import { filterConferences } from "./filtering";
 import { getMilestoneInstant } from "./milestone-time";
 import type {
@@ -44,9 +45,7 @@ function getDecisionMilestone(conference: Conference): Milestone | undefined {
 }
 
 function hasRenderablePrimaryPath(conference: Conference) {
-  return ["fullPaper", "rebuttalStart", "notification"].every((type) =>
-    conference.milestones.some((milestone) => milestone.type === type),
-  );
+  return getPrimaryPathTypes(conference.milestones).length >= 2;
 }
 
 function isConferencePast(

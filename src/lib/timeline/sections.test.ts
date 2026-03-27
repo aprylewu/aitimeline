@@ -25,6 +25,8 @@ describe("organizeConferenceSections", () => {
       "ICML",
       "KDD",
       "CoLM",
+      "NeurIPS",
+      "EMNLP",
     ]);
     expect(sections.past.map((conference) => conference.shortName)).toEqual([
       "CHI",
@@ -33,9 +35,6 @@ describe("organizeConferenceSections", () => {
       "ICDE",
       "CVPR",
     ]);
-    expect(
-      sections.active.some((conference) => conference.shortName === "NeurIPS"),
-    ).toBe(false);
   });
 
   it("does not mark an AoE decision as past before the real AoE deadline instant", () => {

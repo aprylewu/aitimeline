@@ -8,6 +8,7 @@ const colmConference = conferences.find((conference) => conference.id === "colm-
 const icmlConference = conferences.find((conference) => conference.id === "icml-2026")!;
 const iclrConference = conferences.find((conference) => conference.id === "iclr-2026")!;
 const aclConference = conferences.find((conference) => conference.id === "acl-2026")!;
+const neuripsConference = conferences.find((conference) => conference.id === "neurips-2026")!;
 const sigmodConference = conferences.find((conference) => conference.id === "sigmod-2026")!;
 const defaultVisibleMilestoneTypes = new Set([
   "fullPaper",
@@ -456,4 +457,16 @@ it("hides the CFP action when a conference does not have a dedicated CFP url", a
       { name: /call for papers/i },
     ),
   ).not.toBeInTheDocument();
+});
+
+it("shows a conference-level detail note when dates are not fully announced", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([neuripsConference]);
+
+  await user.click(screen.getByTestId("conference-trigger-neurips-2026"));
+
+  expect(
+    screen.getByTestId("conference-detail-row-neurips-2026"),
+  ).toHaveTextContent(/rebuttal.*not.*announced/i);
 });

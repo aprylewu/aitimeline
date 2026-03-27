@@ -78,6 +78,11 @@ it("renders one shared gantt surface and supports dark mode", async () => {
   expect(screen.getByRole("button", { name: "6M" })).toBeInTheDocument();
   expect(screen.getAllByText(conferences[0]!.shortName).length).toBeGreaterThan(0);
   expect(screen.getAllByTestId("timeline-surface")).toHaveLength(1);
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Full paper/i);
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Rebuttal/i);
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Final decision/i);
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Conference/i);
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Today/i);
   expect(browser).toHaveAttribute("data-theme", "light");
   expect(screen.queryByText("Collapse")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /collapse menu/i })).toBeInTheDocument();
@@ -105,7 +110,8 @@ it("shows active and past sections, a today marker, and inline details on click"
   expect(screen.getByTestId("today-line")).toBeInTheDocument();
   expect(screen.getByLabelText(/camera-ready/i)).toBeInTheDocument();
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
-  expect(screen.queryByText("NeurIPS")).not.toBeInTheDocument();
+  expect(screen.getAllByText("NeurIPS").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("EMNLP").length).toBeGreaterThan(0);
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
   expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
     "aria-hidden",
@@ -121,6 +127,33 @@ it("shows active and past sections, a today marker, and inline details on click"
   expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveTextContent(
     conferences[0]!.location,
   );
+});
+
+it("renders a compact legend and shows the NeurIPS unpublished rebuttal note on expand", async () => {
+  const user = userEvent.setup();
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Legend");
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Full paper");
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Rebuttal");
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Final decision");
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Conference");
+  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Today");
+
+  await user.click(screen.getByTestId("conference-trigger-neurips-2026"));
+
+  expect(
+    screen.getByTestId("conference-detail-note-neurips-2026"),
+  ).toHaveTextContent(/rebuttal/i);
+  expect(
+    screen.getByTestId("conference-detail-note-neurips-2026"),
+  ).toHaveTextContent(/not.*announced/i);
 });
 
 it("collapses the desktop sidebar and restores the preference on rerender", async () => {

@@ -378,6 +378,14 @@ function ConferenceDetailStrip({
           {conference.category}
         </span>
       </div>
+      {conference.detailNote ? (
+        <p
+          data-testid={`conference-detail-note-${conference.id}`}
+          className="rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--text-muted)]"
+        >
+          {conference.detailNote}
+        </p>
+      ) : null}
     </div>
   );
 }

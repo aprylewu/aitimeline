@@ -50,5 +50,6 @@ export interface Conference {
   location: string;
   category: ConferenceCategory;
   rankings: ConferenceRanking;
+  detailNote?: string;
   milestones: Milestone[];
 }

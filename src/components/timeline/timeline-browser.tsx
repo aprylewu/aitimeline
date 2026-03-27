@@ -37,6 +37,39 @@ const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
   "conferenceEnd",
 ];
 
+const LEGEND_ITEMS = [
+  {
+    key: "fullPaper",
+    label: "Full paper",
+    markerClass: "bg-[#16a34a]",
+    type: "dot" as const,
+  },
+  {
+    key: "rebuttal",
+    label: "Rebuttal",
+    markerClass: "bg-[var(--timeline-rebuttal)]",
+    type: "dot" as const,
+  },
+  {
+    key: "notification",
+    label: "Final decision",
+    markerClass: "bg-[#dc2626]",
+    type: "dot" as const,
+  },
+  {
+    key: "conference",
+    label: "Conference",
+    markerClass: "bg-[var(--timeline-conference)]",
+    type: "dot" as const,
+  },
+  {
+    key: "today",
+    label: "Today",
+    markerClass: "bg-[var(--accent-secondary)]",
+    type: "line" as const,
+  },
+] as const;
+
 function getIsMobileViewport() {
   if (typeof window === "undefined") {
     return false;
@@ -80,6 +113,38 @@ function getAllRange(
     start: new Date(Math.min(...points.map((point) => point.getTime()))),
     end: new Date(Math.max(...points.map((point) => point.getTime()))),
   };
+}
+
+function TimelineLegend() {
+  return (
+    <div
+      data-testid="timeline-legend"
+      className="mb-4 flex flex-wrap items-center gap-2.5 rounded-[22px] border border-[var(--panel-border)] bg-[var(--surface-bg)] px-3 py-2.5"
+    >
+      <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+        Legend
+      </span>
+      {LEGEND_ITEMS.map((item) => (
+        <span
+          key={item.key}
+          className="inline-flex items-center gap-2 rounded-full bg-[var(--chip-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]"
+        >
+          <span
+            aria-hidden="true"
+            className={
+              item.type === "line"
+                ? `block h-3 w-[3px] rounded-full ${item.markerClass}`
+                : `block h-2.5 w-2.5 rounded-full ${item.markerClass}`
+            }
+          />
+          {item.label}
+        </span>
+      ))}
+      <span className="text-[11px] text-[var(--text-muted)]">
+        Dots are milestones; soft bars mark ranges.
+      </span>
+    </div>
+  );
 }
 
 export function TimelineBrowser({
@@ -323,6 +388,7 @@ export function TimelineBrowser({
                 decisions across active venues.
               </p>
             </div>
+            <TimelineLegend />
             <div
               data-testid="timeline-surface"
               className="timeline-shell overflow-x-auto rounded-[28px] border border-[var(--panel-border)]"
