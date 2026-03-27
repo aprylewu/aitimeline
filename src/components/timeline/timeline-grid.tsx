@@ -225,9 +225,9 @@ function ConferenceDetailStrip({
   const rankingEntries = getRankingEntries(conference);
 
   return (
-    <div className="conference-inline-strip flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-6">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <div className="conference-inline-strip flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span
             data-testid={`conference-detail-title-${conference.id}`}
             className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
@@ -241,38 +241,38 @@ function ConferenceDetailStrip({
             {getConferenceSummary(conference)}
           </span>
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
-          {rankingEntries.length > 0 ? (
-            rankingEntries.map(([key, value]) => (
-              <span
-                key={`${conference.id}-${key}`}
-                className="font-medium text-[var(--text-primary)]"
-              >
-                <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  {key}
-                </span>{" "}
-                {value}
-              </span>
-            ))
-          ) : (
-            <span className="font-medium text-[var(--text-muted)]">Unranked</span>
-          )}
-          <span className="font-medium uppercase tracking-[0.08em]">
-            {conference.category}
-          </span>
-        </div>
+        {conference.cfpUrl ? (
+          <a
+            href={conference.cfpUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            tabIndex={expanded ? 0 : -1}
+            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+          >
+            Call For Papers
+          </a>
+        ) : null}
       </div>
-      {conference.cfpUrl ? (
-        <a
-          href={conference.cfpUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          tabIndex={expanded ? 0 : -1}
-          className="inline-flex shrink-0 items-center justify-center self-start rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
-        >
-          Call For Papers
-        </a>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
+        {rankingEntries.length > 0 ? (
+          rankingEntries.map(([key, value]) => (
+            <span
+              key={`${conference.id}-${key}`}
+              className="font-medium text-[var(--text-primary)]"
+            >
+              <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                {key}
+              </span>{" "}
+              {value}
+            </span>
+          ))
+        ) : (
+          <span className="font-medium text-[var(--text-muted)]">Unranked</span>
+        )}
+        <span className="font-medium uppercase tracking-[0.08em]">
+          {conference.category}
+        </span>
+      </div>
     </div>
   );
 }
@@ -380,7 +380,7 @@ export function TimelineGrid({
 
                 return (
                   <Fragment key={conference.id}>
-                    <div className="timeline-meta-cell relative border-b border-[var(--panel-border)] px-4 py-2">
+                    <div className="timeline-meta-cell relative flex min-h-[56px] items-center justify-center border-b border-[var(--panel-border)] px-3 py-1.5">
                       <button
                         type="button"
                         data-testid={`conference-trigger-${conference.id}`}
@@ -391,7 +391,7 @@ export function TimelineGrid({
                             toggleExpandedConference(current, conference.id),
                           )
                         }
-                        className="conference-trigger w-full cursor-pointer text-left outline-none"
+                        className={`conference-trigger ${showConferenceDetails ? "conference-trigger--expanded" : "conference-trigger--collapsed"} flex h-full w-full items-center justify-center text-center outline-none`}
                       >
                         <ConferenceMetaColumn
                           conference={conference}

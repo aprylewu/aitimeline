@@ -209,34 +209,39 @@ body {
 }
 
 .conference-trigger {
-  transition: transform 160ms ease;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 160ms ease;
 }
 
 .conference-trigger-title,
-.conference-trigger-year {
+.conference-trigger-year,
+.conference-trigger-chevron {
   transition:
     transform 160ms ease,
     color 160ms ease,
     letter-spacing 160ms ease;
 }
 
-.conference-trigger:hover,
 .conference-trigger:focus-visible {
-  transform: translateX(2px);
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
-.conference-trigger:hover .conference-trigger-title,
-.conference-trigger:focus-visible .conference-trigger-title {
+.conference-trigger--collapsed:hover {
+  transform: translateY(-1px);
+}
+
+.conference-trigger--collapsed:hover .conference-trigger-title {
   color: var(--accent-primary);
 }
 
-.conference-trigger:hover .conference-trigger-year,
-.conference-trigger:focus-visible .conference-trigger-year {
+.conference-trigger--collapsed:hover .conference-trigger-year {
   color: var(--text-primary);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
-.conference-trigger[aria-expanded="true"] .conference-trigger-chevron {
+.conference-trigger--collapsed:hover .conference-trigger-chevron {
   color: var(--accent-primary);
 }
 

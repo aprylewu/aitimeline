@@ -58,13 +58,19 @@ it("renders a separate today label and a compact inline detail strip on click", 
 
   expect(screen.getByTestId("today-label")).toHaveTextContent("Today");
   expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(trigger).toHaveClass("conference-trigger--collapsed");
+  expect(trigger).toHaveClass("items-center");
+  expect(trigger).toHaveClass("justify-center");
+  expect(trigger).toHaveClass("text-center");
   expect(detailRow).toHaveAttribute("aria-hidden", "true");
-  expect(within(trigger).getByText("ACL")).toHaveClass("text-[21px]");
+  expect(within(trigger).getByText("ACL")).toHaveClass("text-[24px]");
   expect(within(trigger).getByText("2026")).toHaveClass("font-mono");
+  expect(within(trigger).getByText("2026")).toHaveClass("text-[14px]");
 
   await user.click(trigger);
 
   expect(trigger).toHaveAttribute("aria-expanded", "true");
+  expect(trigger).toHaveClass("conference-trigger--expanded");
   expect(detailRow).toHaveAttribute("aria-hidden", "false");
   expect(within(detailRow).queryByText(/^ACL$/)).not.toBeInTheDocument();
   expect(within(detailRow).queryByText(/^2026$/)).not.toBeInTheDocument();
