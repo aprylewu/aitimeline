@@ -54,6 +54,11 @@ interface MonthCell {
   width: number;
 }
 
+interface RenderWindow {
+  end: Date;
+  start: Date;
+}
+
 type TimelineTone =
   | "conference"
   | "fullPaper"
@@ -141,6 +146,57 @@ function getFirstFullyVisibleMonthStart(monthCells: MonthCell[]) {
   return firstVisibleMonthCell
     ? parseISO(`${firstVisibleMonthCell.key}-01`)
     : null;
+}
+
+function getRenderWindow(
+  monthCells: MonthCell[],
+  visibleRange: { start: Date; end: Date },
+): RenderWindow {
+  const fullyVisibleMonthCells = monthCells.filter((monthCell) => monthCell.labelVisible);
+
+  if (fullyVisibleMonthCells.length === 0) {
+    return {
+      start: visibleRange.start,
+      end: visibleRange.end,
+    };
+  }
+
+  const firstMonthStart = parseISO(`${fullyVisibleMonthCells[0]!.key}-01`);
+  const lastMonthStart = parseISO(
+    `${fullyVisibleMonthCells[fullyVisibleMonthCells.length - 1]!.key}-01`,
+  );
+
+  return {
+    start: firstMonthStart,
+    end: addMonths(lastMonthStart, 1),
+  };
+}
+
+function clipTimelineSpan(
+  start: Date,
+  end: Date,
+  renderWindow: RenderWindow,
+) {
+  const clippedStart = isBefore(start, renderWindow.start)
+    ? renderWindow.start
+    : start;
+  const clippedEnd = isAfter(end, renderWindow.end) ? renderWindow.end : end;
+
+  if (clippedEnd.getTime() <= clippedStart.getTime()) {
+    return null;
+  }
+
+  return {
+    start: clippedStart,
+    end: clippedEnd,
+  };
+}
+
+function isWithinRenderWindow(value: Date, renderWindow: RenderWindow) {
+  return (
+    value.getTime() >= renderWindow.start.getTime() &&
+    value.getTime() < renderWindow.end.getTime()
+  );
 }
 
 function toggleExpandedConference(current: Set<string>, conferenceId: string) {
@@ -383,6 +439,7 @@ export function TimelineGrid({
   );
   const monthCells = getMonthCells(visibleRange);
   const firstFullyVisibleMonthStart = getFirstFullyVisibleMonthStart(monthCells);
+  const renderWindow = getRenderWindow(monthCells, visibleRange);
   const todayVisible = isWithinVisibleRange(now, visibleRange);
   const todayLeft = getPositionPercent(now, visibleRange);
   const todayDateLabel = format(now, "MMM d, yyyy");
@@ -397,7 +454,10 @@ export function TimelineGrid({
 
   return (
     <div className="relative min-w-[980px]">
-      <div className="grid grid-cols-[180px_minmax(0,1fr)]">
+      <div
+        data-testid="timeline-grid-shell"
+        className="relative z-10 grid grid-cols-[180px_minmax(0,1fr)]"
+      >
         <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
           Venue
         </div>
@@ -534,49 +594,60 @@ export function TimelineGrid({
                           />
                         ))}
                       </div>
-                      {firstPrimaryMilestone &&
-                      lastPrimaryMilestone &&
-                      getPositionPercent(
-                        parseISO(lastPrimaryMilestone.dateStart),
-                        visibleRange,
-                      ) >
-                        getPositionPercent(
+                      {(() => {
+                        if (!firstPrimaryMilestone || !lastPrimaryMilestone) {
+                          return null;
+                        }
+
+                        const clippedPrimaryPath = clipTimelineSpan(
                           parseISO(firstPrimaryMilestone.dateStart),
-                          visibleRange,
-                        ) ? (
-                        <div
-                          data-testid={`primary-path-${conference.id}`}
-                          data-path-start={firstPrimaryMilestone.type}
-                          data-path-end={lastPrimaryMilestone.type}
-                          className="absolute top-[22px] h-[8px] rounded-full bg-[var(--path-track)]"
-                          style={{
-                            left: `${getPositionPercent(
-                              parseISO(firstPrimaryMilestone.dateStart),
-                              visibleRange,
-                            )}%`,
-                            width: `${Math.max(
-                              0.75,
-                              getPositionPercent(
-                                parseISO(lastPrimaryMilestone.dateStart),
-                                visibleRange,
-                              ) -
-                                getPositionPercent(
-                                  parseISO(firstPrimaryMilestone.dateStart),
-                                  visibleRange,
-                                ),
-                            )}%`,
-                          }}
-                        />
-                      ) : null}
-                      {rangeSegments.map((segment) => {
+                          parseISO(lastPrimaryMilestone.dateStart),
+                          renderWindow,
+                        );
+
+                        if (!clippedPrimaryPath) {
+                          return null;
+                        }
+
                         const left = getPositionPercent(
-                          parseISO(segment.start),
+                          clippedPrimaryPath.start,
                           visibleRange,
                         );
                         const right = getPositionPercent(
-                          parseISO(segment.end),
+                          clippedPrimaryPath.end,
                           visibleRange,
                         );
+
+                        if (right <= left) {
+                          return null;
+                        }
+
+                        return (
+                          <div
+                            data-testid={`primary-path-${conference.id}`}
+                            data-path-start={firstPrimaryMilestone.type}
+                            data-path-end={lastPrimaryMilestone.type}
+                            className="absolute top-[22px] h-[8px] rounded-full bg-[var(--path-track)]"
+                            style={{
+                              left: `${left}%`,
+                              width: `${Math.max(0.75, right - left)}%`,
+                            }}
+                          />
+                        );
+                      })()}
+                      {rangeSegments.map((segment) => {
+                        const clippedSegment = clipTimelineSpan(
+                          parseISO(segment.start),
+                          parseISO(segment.end),
+                          renderWindow,
+                        );
+
+                        if (!clippedSegment) {
+                          return null;
+                        }
+
+                        const left = getPositionPercent(clippedSegment.start, visibleRange);
+                        const right = getPositionPercent(clippedSegment.end, visibleRange);
 
                         return (
                           <div
@@ -597,6 +668,7 @@ export function TimelineGrid({
                         if (
                           (firstFullyVisibleMonthStart &&
                             isBefore(milestoneStart, firstFullyVisibleMonthStart)) ||
+                          !isWithinRenderWindow(milestoneStart, renderWindow) ||
                           !isWithinVisibleRange(
                             milestoneStart,
                             visibleRange,

@@ -284,6 +284,21 @@ it("does not render milestone markers from a partially clipped leading month", (
   expect(screen.getByLabelText("Notification")).toBeInTheDocument();
 });
 
+it("clips the primary path to the first fully visible month boundary", () => {
+  renderTimelineGridWithRange({
+    visibleConferences: [icmlConference],
+    visibleRange: {
+      start: new Date("2026-01-27T00:00:00Z"),
+      end: new Date("2026-07-27T00:00:00Z"),
+    },
+  });
+
+  const path = screen.getByTestId("primary-path-icml-2026");
+  const febCell = screen.getByTestId("axis-month-cell-2026-02");
+
+  expect(path.style.left).toBe(febCell.style.left);
+});
+
 it("shows an AoE countdown and keeps the tooltip above the today overlay", async () => {
   const user = userEvent.setup();
 
@@ -315,6 +330,7 @@ it("shows an AoE countdown and keeps the tooltip above the today overlay", async
   expect(tooltip).toHaveClass("z-40");
   expect(tooltip).toHaveClass("bg-[var(--tooltip-bg-solid)]");
   expect(screen.getByTestId("today-overlay")).toHaveClass("z-0");
+  expect(screen.getByTestId("timeline-grid-shell")).toHaveClass("z-10");
 });
 
 it("removes the legacy gray row baseline from timeline rows", () => {
