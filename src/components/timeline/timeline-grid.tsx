@@ -458,6 +458,20 @@ export function TimelineGrid({
         data-testid="timeline-grid-shell"
         className="relative z-10 grid grid-cols-[180px_minmax(0,1fr)]"
       >
+        {todayVisible ? (
+          <div
+            data-testid="today-overlay"
+            className="pointer-events-none absolute inset-y-0 left-[180px] right-0 z-[1]"
+          >
+            <div className="relative mx-4 h-full">
+              <div
+                data-testid="today-line"
+                className="absolute inset-y-0 z-[1] w-[3px] -translate-x-1/2 rounded-full bg-[var(--accent-secondary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent),0_0_18px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent)]"
+                style={{ left: `${todayLeft}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
           Venue
         </div>
@@ -475,7 +489,7 @@ export function TimelineGrid({
                   }}
                 >
                   {monthCell.labelVisible ? (
-                    <div className="timeline-axis-label absolute top-[28px] left-1/2 -translate-x-1/2 text-[13px] font-medium text-[var(--text-muted)]">
+                    <div className="timeline-axis-label absolute top-[28px] left-1/2 z-10 -translate-x-1/2 text-[13px] font-medium text-[var(--text-muted)]">
                       {monthCell.label}
                     </div>
                   ) : null}
@@ -710,7 +724,7 @@ export function TimelineGrid({
                               })
                             }
                             onBlur={() => setHoveredMilestone(null)}
-                            className="timeline-marker absolute top-[14px] h-6 w-6 -translate-x-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)]"
+                            className="timeline-marker absolute top-[14px] z-10 h-6 w-6 -translate-x-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)]"
                             style={{ left: `${left}%` }}
                           >
                             <span
@@ -742,28 +756,25 @@ export function TimelineGrid({
       </div>
       {todayVisible ? (
         <div
-          data-testid="today-overlay"
-          className="pointer-events-none absolute inset-y-0 left-[180px] right-0 z-0"
+          data-testid="today-label-overlay"
+          className="pointer-events-none absolute inset-x-0 top-0 z-20"
         >
-          <div className="relative mx-4 h-full">
-            <div
-              data-testid="today-line"
-              className="absolute inset-y-0 w-[3px] -translate-x-1/2 rounded-full bg-[var(--accent-secondary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent),0_0_18px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent)]"
-              style={{ left: `${todayLeft}%` }}
-            />
-            <span
-              data-testid="today-label"
-              className="timeline-today-label"
-              style={{ left: `${todayLeft}%` }}
-            >
-              <span>Today</span>
+          <div className="relative ml-[180px] mr-0">
+            <div className="relative mx-4 h-0">
               <span
-                data-testid="today-date"
-                className="timeline-today-date ml-2 pl-2"
+                data-testid="today-label"
+                className="timeline-today-label"
+                style={{ left: `${todayLeft}%` }}
               >
-                {todayDateLabel}
+                <span>Today</span>
+                <span
+                  data-testid="today-date"
+                  className="timeline-today-date ml-2 pl-2"
+                >
+                  {todayDateLabel}
+                </span>
               </span>
-            </span>
+            </div>
           </div>
         </div>
       ) : null}

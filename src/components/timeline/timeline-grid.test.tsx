@@ -94,7 +94,8 @@ it("renders a separate today label and a compact inline detail strip on click", 
 
   expect(todayLabel).toHaveTextContent("Today");
   expect(todayLabel).toHaveTextContent("Mar 26, 2026");
-  expect(todayOverlay).toHaveClass("z-0");
+  expect(todayOverlay).toHaveClass("z-[1]");
+  expect(screen.getByTestId("today-label-overlay")).toHaveClass("z-20");
   expect(screen.getByTestId("today-date")).toHaveClass("ml-2");
   expect(screen.getByTestId("today-date")).toHaveClass("pl-2");
   expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -329,7 +330,8 @@ it("shows an AoE countdown and keeps the tooltip above the today overlay", async
   expect(tooltip).toHaveTextContent("GMT+8");
   expect(tooltip).toHaveClass("z-40");
   expect(tooltip).toHaveClass("bg-[var(--tooltip-bg-solid)]");
-  expect(screen.getByTestId("today-overlay")).toHaveClass("z-0");
+  expect(screen.getByTestId("today-overlay")).toHaveClass("z-[1]");
+  expect(screen.getByTestId("today-label-overlay")).toHaveClass("z-20");
   expect(screen.getByTestId("timeline-grid-shell")).toHaveClass("z-10");
 });
 
