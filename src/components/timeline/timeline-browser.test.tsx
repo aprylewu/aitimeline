@@ -69,12 +69,14 @@ it("shows the clear action for non-default preset and milestone filters", async 
     screen.getByText("No conferences match the current filters."),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /clear all filters/i }),
+    screen.getByRole("button", { name: /clear filters/i }),
   ).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: /clear all filters/i }));
+  await user.click(screen.getByRole("button", { name: /clear filters/i }));
 
   expect(screen.getByText("CHI")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /filters/i }));
 
   const milestoneButtons = screen.getAllByRole("button", {
     pressed: true,
@@ -88,6 +90,6 @@ it("shows the clear action for non-default preset and milestone filters", async 
     screen.getByText("No conferences match the current filters."),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /clear all filters/i }),
+    screen.getByRole("button", { name: /clear filters/i }),
   ).toBeInTheDocument();
 });

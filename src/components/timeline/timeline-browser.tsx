@@ -154,28 +154,27 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
       />
       <section className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
         <div className="mb-5">
-          <p className="text-xs font-medium text-[var(--text-muted)]">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
             {visibleConferenceCount} venue{visibleConferenceCount !== 1 ? "s" : ""}
             {" · "}
             {format(visibleRange.start, "MMM yyyy")}
             {" – "}
             {format(visibleRange.end, "MMM yyyy")}
           </p>
-          <h1 className="mt-1.5 text-3xl font-bold tracking-tight md:text-4xl">
-            2026 Conference Timeline
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
+            Conference Timeline
           </h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-            Deadlines, rebuttals, and decisions at a glance across active
-            venues.
+          <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--text-muted)]">
+            Deadlines, rebuttals, and decisions at a glance.
           </p>
           <div
             data-testid="timeline-legend"
-            className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[var(--text-muted)]"
+            className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--text-muted)]"
           >
             {LEGEND_ITEMS.map((item) => (
               <span key={item.label} className="flex items-center gap-1.5">
                 <span
-                  className="inline-block h-2 w-2 rounded-full"
+                  className="inline-block h-1.5 w-1.5 rounded-full"
                   style={{ backgroundColor: `var(${item.variable})` }}
                 />
                 {item.label}
@@ -185,7 +184,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
         </div>
         <div
           data-testid="timeline-surface"
-          className="timeline-shell overflow-x-auto rounded-2xl border border-[var(--panel-border)]"
+          className="timeline-shell overflow-x-auto rounded-xl border border-[var(--panel-border)]"
         >
           <TimelineGrid
             sections={[
@@ -197,7 +196,12 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
           />
         </div>
         {visibleConferenceCount === 0 ? (
-          <div className="mt-4 rounded-lg border border-[var(--panel-border)] bg-[var(--surface-bg)] px-5 py-4">
+          <div className="mt-6 flex flex-col items-center py-12">
+            <div className="mb-4 flex flex-col items-center gap-1.5 text-[var(--text-muted)] opacity-30">
+              <div className="h-px w-32 bg-current" />
+              <div className="h-px w-24 bg-current" />
+              <div className="h-px w-16 bg-current" />
+            </div>
             <p className="text-sm text-[var(--text-muted)]">
               No conferences match the current filters.
             </p>
@@ -205,9 +209,9 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="mt-2 cursor-pointer text-sm font-medium text-[var(--accent-primary)] transition hover:underline"
+                className="mt-3 cursor-pointer rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-primary)]"
               >
-                Clear all filters
+                Clear filters
               </button>
             ) : null}
           </div>
