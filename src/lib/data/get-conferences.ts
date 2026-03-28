@@ -1,4 +1,5 @@
 import type { Conference } from "@/types/conference";
+import { conferences as staticConferences } from "@/data/conferences";
 import { fetchCcfddl } from "./fetch-ccfddl";
 import { fetchHfDeadlines } from "./fetch-hf";
 import { mergeSources } from "./merge-sources";
@@ -20,5 +21,11 @@ export async function getConferences(): Promise<Conference[]> {
     // Fall through to cache
   }
 
-  return cachedConferences as Conference[];
+  const cached = cachedConferences as Conference[];
+
+  if (cached.length > 0) {
+    return cached;
+  }
+
+  return staticConferences;
 }
