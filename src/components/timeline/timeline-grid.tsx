@@ -562,7 +562,7 @@ function ConferenceDetailRow({
   const detailRowRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const hasMountedRef = useRef(false);
+  const hasInitializedHeightRef = useRef(false);
 
   useEffect(() => {
     const detailRowNode = detailRowRef.current;
@@ -573,14 +573,6 @@ function ConferenceDetailRow({
     }
 
     const measuredHeight = contentNode.scrollHeight;
-
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      if (expanded) {
-        detailRowNode.style.height = `${measuredHeight}px`;
-      }
-      return;
-    }
 
     if (animationFrameRef.current !== null) {
       window.cancelAnimationFrame(animationFrameRef.current);
@@ -667,9 +659,15 @@ function ConferenceDetailRow({
         data-testid={`conference-detail-row-${conference.id}`}
         data-expanded={String(expanded)}
         aria-hidden={!expanded}
-        ref={detailRowRef}
-        className={`conference-inline-row relative z-10 overflow-hidden border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
-        style={{ height: "0px" }}
+        ref={(node) => {
+          detailRowRef.current = node;
+
+          if (node && !hasInitializedHeightRef.current && !expanded) {
+            node.style.height = "0px";
+            hasInitializedHeightRef.current = true;
+          }
+        }}
+        className={`conference-inline-row relative z-10 border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
       >
         <div
           ref={contentRef}

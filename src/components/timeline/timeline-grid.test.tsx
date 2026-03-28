@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { getMilestoneInstant } from "@/lib/timeline/milestone-time";
@@ -201,6 +201,33 @@ it("animates detail expansion with an explicit row height", async () => {
   await waitFor(() => {
     expect(detailRow.style.height).toBe("188px");
   });
+});
+
+it("keeps expanded details visible after follow-up rerenders", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([aclConference]);
+
+  const trigger = screen.getByTestId("conference-trigger-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
+  const detailContent = screen.getByTestId("conference-detail-content-acl-2026");
+
+  Object.defineProperty(detailContent, "scrollHeight", {
+    configurable: true,
+    value: 188,
+  });
+
+  await user.click(trigger);
+
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 240));
+  });
+
+  expect(detailRow).toHaveAttribute("aria-hidden", "false");
+  expect(detailRow.style.height).not.toBe("0px");
+  expect(
+    within(detailRow).getByTestId("conference-detail-title-acl-2026"),
+  ).toBeInTheDocument();
 });
 
 it("restores trigger hover feedback after expansion without keeping the clicked glow", async () => {
