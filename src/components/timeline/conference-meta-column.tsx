@@ -16,12 +16,12 @@ export function ConferenceMetaColumn({
   if (compact) {
     return (
       <div className="min-w-0">
-        <span className="conference-trigger-title text-[11px] font-medium tracking-[0.02em] text-[var(--text-primary)]">
+        <p className="conference-trigger-title truncate text-[12px] font-semibold tracking-[0.01em] text-[var(--text-primary)]">
           {conference.shortName}
-        </span>
-        <span className="conference-trigger-year ml-1 text-[10px] text-[var(--text-muted)]">
+        </p>
+        <p className="conference-trigger-year mt-0.5 text-[10px] text-[var(--text-muted)]">
           {conference.year}
-        </span>
+        </p>
       </div>
     );
   }

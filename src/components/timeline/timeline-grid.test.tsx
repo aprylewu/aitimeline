@@ -168,5 +168,5 @@ it("renders larger month labels for the shared axis", () => {
     />,
   );
 
-  expect(screen.getByText("Apr")).toHaveClass("text-[11px]");
+  expect(screen.getByText("Apr 2026")).toHaveClass("text-[11px]");
 });

@@ -166,7 +166,7 @@ export function TimelineGrid({
   return (
     <div className="relative min-w-[980px]">
       <div className="grid grid-cols-[180px_minmax(0,1fr)]">
-        <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <div className="timeline-meta-head sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Venue
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
@@ -181,7 +181,7 @@ export function TimelineGrid({
                   style={{ left: `${left}%` }}
                 >
                   <div className="timeline-axis-label font-mono text-[11px] font-medium text-[var(--text-muted)]">
-                    {format(tick, "MMM")}
+                    {format(tick, "MMM yyyy")}
                   </div>
                 </div>
               );
@@ -196,7 +196,7 @@ export function TimelineGrid({
           return (
             <Fragment key={section.id}>
               <div
-                className="timeline-section-label border-b border-[var(--panel-border)] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]"
+                className="timeline-section-label sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]"
               >
                 {section.label}
               </div>
@@ -218,7 +218,7 @@ export function TimelineGrid({
                 return (
                   <Fragment key={conference.id}>
                     <div
-                      className="timeline-meta-cell relative border-b border-[var(--panel-border)] px-4 py-2"
+                      className="timeline-meta-cell sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-4 py-2"
                       onMouseEnter={() => setHoveredConferenceId(conference.id)}
                       onMouseLeave={() => setHoveredConferenceId(null)}
                     >
