@@ -536,12 +536,20 @@ function ConferenceDetailStrip({
 
 function getDetailRowStateClass(isExpanded: boolean) {
   return isExpanded
-    ? "grid-rows-[1fr] border-[var(--panel-border)] bg-[var(--surface-bg)]/60 px-4 py-2.5 opacity-100"
-    : "grid-rows-[0fr] border-transparent bg-transparent px-4 py-0 opacity-0";
+    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60"
+    : "pointer-events-none border-transparent bg-transparent";
 }
 
-function getDetailRowInnerClass(isExpanded: boolean) {
-  return isExpanded ? "translate-y-0" : "-translate-y-2";
+function getDetailPanelClass(isExpanded: boolean) {
+  return isExpanded
+    ? "translate-y-0 opacity-100"
+    : "-translate-y-2 opacity-0";
+}
+
+function getDetailMetaCellClass(isExpanded: boolean) {
+  return isExpanded
+    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60 opacity-100"
+    : "pointer-events-none border-transparent bg-transparent opacity-0";
 }
 
 function ConferenceDetailRow({
@@ -551,20 +559,132 @@ function ConferenceDetailRow({
   conference: Conference;
   expanded: boolean;
 }) {
+  const detailRowRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const hasMountedRef = useRef(false);
+
+  useEffect(() => {
+    const detailRowNode = detailRowRef.current;
+    const contentNode = contentRef.current;
+
+    if (!detailRowNode || !contentNode) {
+      return;
+    }
+
+    const measuredHeight = contentNode.scrollHeight;
+
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      if (expanded) {
+        detailRowNode.style.height = `${measuredHeight}px`;
+      }
+      return;
+    }
+
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    if (expanded) {
+      animationFrameRef.current = window.requestAnimationFrame(() => {
+        detailRowNode.style.height = `${contentNode.scrollHeight}px`;
+        animationFrameRef.current = null;
+      });
+
+      return;
+    }
+
+    detailRowNode.style.height = `${measuredHeight}px`;
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      detailRowNode.style.height = "0px";
+      animationFrameRef.current = null;
+    });
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded) {
+      return;
+    }
+
+    const detailRowNode = detailRowRef.current;
+    const contentNode = contentRef.current;
+
+    if (!detailRowNode || !contentNode) {
+      return;
+    }
+
+    const updateHeight = () => {
+      detailRowNode.style.height = `${contentNode.scrollHeight}px`;
+    };
+
+    updateHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateHeight);
+
+      return () => {
+        window.removeEventListener("resize", updateHeight);
+      };
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    resizeObserver.observe(contentNode);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div
-      id={`conference-detail-row-${conference.id}`}
-      data-testid={`conference-detail-row-${conference.id}`}
-      data-expanded={String(expanded)}
-      aria-hidden={!expanded}
-      className={`conference-inline-row relative z-10 col-span-2 grid overflow-hidden border-b transition-[grid-template-rows,opacity,padding,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
-    >
+    <>
       <div
-        className={`conference-inline-row-inner min-h-0 overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowInnerClass(expanded)}`}
+        data-testid={`conference-detail-meta-${conference.id}`}
+        aria-hidden={!expanded}
+        className={`timeline-meta-cell sticky left-0 z-20 border-b transition-[opacity,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailMetaCellClass(expanded)}`}
+      />
+      <div
+        id={`conference-detail-row-${conference.id}`}
+        data-testid={`conference-detail-row-${conference.id}`}
+        data-expanded={String(expanded)}
+        aria-hidden={!expanded}
+        ref={detailRowRef}
+        className={`conference-inline-row relative z-10 overflow-hidden border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
+        style={{ height: "0px" }}
       >
-        <ConferenceDetailStrip conference={conference} expanded={expanded} />
+        <div
+          ref={contentRef}
+          data-testid={`conference-detail-content-${conference.id}`}
+          className="px-4 py-2.5"
+        >
+          <div
+            data-testid={`conference-detail-panel-${conference.id}`}
+            className={`conference-inline-row-inner sticky left-[196px] max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
+          >
+            <ConferenceDetailStrip conference={conference} expanded={expanded} />
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { getMilestoneInstant } from "@/lib/timeline/milestone-time";
@@ -160,6 +160,47 @@ it("renders a separate today label and a compact inline detail strip on click", 
   expect(
     within(detailRow).getByRole("link", { name: /call for papers/i }),
   ).toHaveAttribute("href", expect.stringContaining("aclweb.org"));
+});
+
+it("keeps expanded conference details fixed while the timeline scrolls independently", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([aclConference]);
+
+  await user.click(screen.getByTestId("conference-trigger-acl-2026"));
+
+  const detailMetaCell = screen.getByTestId("conference-detail-meta-acl-2026");
+  const detailPanel = screen.getByTestId("conference-detail-panel-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
+
+  expect(detailMetaCell).toHaveClass("sticky");
+  expect(detailMetaCell).toHaveClass("left-0");
+  expect(detailPanel).toHaveClass("sticky");
+  expect(detailPanel).toHaveClass("left-[196px]");
+  expect(detailRow).not.toHaveClass("col-span-2");
+});
+
+it("animates detail expansion with an explicit row height", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([aclConference]);
+
+  const trigger = screen.getByTestId("conference-trigger-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
+  const detailContent = screen.getByTestId("conference-detail-content-acl-2026");
+
+  Object.defineProperty(detailContent, "scrollHeight", {
+    configurable: true,
+    value: 188,
+  });
+
+  expect(detailRow.style.height).toBe("0px");
+
+  await user.click(trigger);
+
+  await waitFor(() => {
+    expect(detailRow.style.height).toBe("188px");
+  });
 });
 
 it("restores trigger hover feedback after expansion without keeping the clicked glow", async () => {

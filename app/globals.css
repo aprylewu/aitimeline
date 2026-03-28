@@ -238,7 +238,7 @@ body {
 }
 
 .conference-inline-row {
-  will-change: grid-template-rows, opacity, padding;
+  will-change: height;
 }
 
 .conference-inline-row[data-expanded="true"] {
@@ -250,7 +250,7 @@ body {
 }
 
 .conference-inline-row-inner {
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 @media (max-width: 900px) {
