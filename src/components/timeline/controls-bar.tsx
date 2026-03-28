@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   ConferenceCategory,
   MilestoneType,
@@ -7,6 +8,8 @@ import type {
 interface ControlsBarProps {
   query: string;
   onQueryChange: (value: string) => void;
+  activePreset: RangePreset | null;
+  activeFilterCount: number;
   availableCategories: ConferenceCategory[];
   categories: Set<ConferenceCategory>;
   onCategoryToggle: (value: ConferenceCategory) => void;
@@ -14,11 +17,14 @@ interface ControlsBarProps {
   visibleMilestoneTypes: Set<MilestoneType>;
   onMilestoneToggle: (value: MilestoneType) => void;
   onPresetSelect: (preset: "3M" | "6M" | "12M" | "All") => void;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
   theme: "light" | "dark";
   onThemeToggle: () => void;
 }
 
-const PRESETS = ["3M", "6M", "12M", "All"] as const;
+export const PRESETS = ["3M", "6M", "12M", "All"] as const;
+export type RangePreset = (typeof PRESETS)[number];
 
 const CATEGORY_LABELS: Record<ConferenceCategory, string> = {
   AI: "AI / ML",
@@ -71,9 +77,39 @@ function FilterIcon() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" />
+    </svg>
+  );
+}
+
+function getControlButtonClass(isActive: boolean) {
+  return isActive
+    ? "border-[var(--text-primary)] bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
+    : "border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]";
+}
+
+function getMilestonePopoverPosition(anchorRect: DOMRect) {
+  const width = 256;
+  const viewportPadding = 16;
+
+  return {
+    left: Math.max(
+      viewportPadding,
+      Math.min(anchorRect.right - width, window.innerWidth - width - viewportPadding),
+    ),
+    top: anchorRect.bottom + 6,
+    width,
+  };
+}
+
 export function ControlsBar({
   query,
   onQueryChange,
+  activePreset,
+  activeFilterCount,
   availableCategories,
   categories,
   onCategoryToggle,
@@ -81,25 +117,84 @@ export function ControlsBar({
   visibleMilestoneTypes,
   onMilestoneToggle,
   onPresetSelect,
+  hasActiveFilters,
+  onClearFilters,
   theme,
   onThemeToggle,
 }: ControlsBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const filtersButtonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const popoverPanelRef = useRef<HTMLDivElement>(null);
+  const milestonePopoverId = useId();
+  const [popoverPosition, setPopoverPosition] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-        setFiltersOpen(false);
+    function handleClickOutside(event: PointerEvent) {
+      const target = event.target as Node;
+
+      if (
+        popoverPanelRef.current?.contains(target) ||
+        filtersButtonRef.current?.contains(target)
+      ) {
+        return;
       }
+
+      setFiltersOpen(false);
     }
 
     if (filtersOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("pointerdown", handleClickOutside);
     }
 
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    if (!filtersOpen) {
+      return;
+    }
+
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setFiltersOpen(false);
+      filtersButtonRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleEscapeKey);
+    return () => document.removeEventListener("keydown", handleEscapeKey);
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    if (!filtersOpen) {
+      return;
+    }
+
+    function syncPopoverPosition() {
+      const anchorRect = filtersButtonRef.current?.getBoundingClientRect();
+
+      if (!anchorRect) {
+        return;
+      }
+
+      setPopoverPosition(getMilestonePopoverPosition(anchorRect));
+    }
+
+    syncPopoverPosition();
+    window.addEventListener("resize", syncPopoverPosition);
+    window.addEventListener("scroll", syncPopoverPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", syncPopoverPosition);
+      window.removeEventListener("scroll", syncPopoverPosition, true);
+    };
   }, [filtersOpen]);
 
   useEffect(() => {
@@ -114,97 +209,156 @@ export function ControlsBar({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const activeFilterCount = availableMilestoneTypes.filter(
+  const activeMilestoneFilterCount = availableMilestoneTypes.filter(
     (type) => !visibleMilestoneTypes.has(type),
   ).length;
 
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--panel-border)] bg-[var(--controls-bg)] px-4 py-3 md:px-6">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-2.5">
-        <div className="flex items-center gap-2">
-          <div className="relative min-w-48 flex-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
             <input
               ref={inputRef}
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
+              aria-label="Search conferences"
               placeholder="Search conferences..."
-              className="h-10 w-full rounded-lg border border-[var(--panel-border)] bg-[var(--input-bg)] px-3.5 pr-14 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
+              className="timeline-control h-11 w-full rounded-lg border border-[var(--panel-border)] bg-[var(--input-bg)] px-3.5 pr-14 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
-            <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-[var(--panel-border)] bg-[var(--chip-bg)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
-              ⌘K
-            </kbd>
-          </div>
-          <div
-            className="flex items-center overflow-hidden rounded-lg border border-[var(--panel-border)]"
-            role="group"
-            aria-label="Range presets"
-          >
-            {PRESETS.map((preset) => (
+            {query ? (
               <button
-                key={preset}
                 type="button"
-                onClick={() => onPresetSelect(preset)}
-                className="cursor-pointer border-r border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition last:border-r-0 hover:bg-[var(--chip-active-bg)] hover:text-[var(--text-primary)]"
+                onClick={() => {
+                  onQueryChange("");
+                  inputRef.current?.focus();
+                }}
+                aria-label="Clear search"
+                className="timeline-control absolute top-1/2 right-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--chip-bg)]"
               >
-                {preset}
+                <CloseIcon />
               </button>
-            ))}
+            ) : (
+              <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-[var(--panel-border)] bg-[var(--chip-bg)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+                ⌘K
+              </kbd>
+            )}
           </div>
-          <div className="relative" ref={popoverRef}>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((open) => !open)}
-              className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] px-2.5 text-xs font-medium text-[var(--text-muted)] transition hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+            <div
+              className="flex items-center overflow-hidden rounded-lg border border-[var(--panel-border)]"
+              role="group"
+              aria-label="Range presets"
             >
-              <FilterIcon />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="ml-0.5 rounded-full bg-[var(--accent-primary)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--page-bg)]">
+              {PRESETS.map((preset) => {
+                const isActive = activePreset === preset;
+
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => onPresetSelect(preset)}
+                    aria-pressed={isActive}
+                    className={`timeline-control relative h-11 cursor-pointer border-r border-[var(--panel-border)] px-3.5 py-1.5 text-[11px] font-medium last:border-r-0 focus-visible:z-10 ${isActive ? "bg-[var(--surface-elevated)] text-[var(--text-primary)]" : "bg-[var(--chip-bg)] text-[var(--text-muted)] hover:bg-[var(--chip-active-bg)] hover:text-[var(--text-primary)]"}`}
+                  >
+                    {preset}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="relative">
+              <button
+                ref={filtersButtonRef}
+                type="button"
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-controls={milestonePopoverId}
+                aria-expanded={filtersOpen}
+                aria-haspopup="dialog"
+                className={`timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(filtersOpen || activeMilestoneFilterCount > 0)}`}
+              >
+                <FilterIcon />
+                Milestones
+                {activeMilestoneFilterCount > 0 ? (
+                  <span className="ml-0.5 rounded-full bg-[var(--text-primary)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--page-bg)]">
+                    {activeMilestoneFilterCount}
+                  </span>
+                ) : null}
+              </button>
+              {filtersOpen && popoverPosition && typeof document !== "undefined"
+                ? createPortal(
+                    <div
+                      ref={popoverPanelRef}
+                      id={milestonePopoverId}
+                      role="dialog"
+                      aria-label="Milestone filter controls"
+                      className="timeline-floating-surface fixed z-[70] rounded-xl border border-[var(--panel-border)] p-3 shadow-lg"
+                      style={{
+                        left: popoverPosition.left,
+                        top: popoverPosition.top,
+                        width: popoverPosition.width,
+                      }}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                          Milestone types
+                        </p>
+                        {activeMilestoneFilterCount > 0 ? (
+                          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                            {activeMilestoneFilterCount} hidden
+                          </span>
+                        ) : null}
+                      </div>
+                      <div
+                        className="flex flex-wrap gap-1.5"
+                        role="group"
+                        aria-label="Milestone filters"
+                      >
+                        {availableMilestoneTypes.map((milestoneType) => {
+                          const isActive = visibleMilestoneTypes.has(milestoneType);
+
+                          return (
+                            <button
+                              key={milestoneType}
+                              type="button"
+                              onClick={() => onMilestoneToggle(milestoneType)}
+                              aria-pressed={isActive}
+                              className={`timeline-control min-h-9 cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${getControlButtonClass(isActive)}`}
+                            >
+                              {MILESTONE_LABELS[milestoneType]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>,
+                    document.body,
+                  )
+                : null}
+            </div>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClearFilters();
+                  setFiltersOpen(false);
+                }}
+                aria-label="Reset filters"
+                className="timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)]"
+              >
+                Reset
+                <span className="rounded-full bg-[var(--chip-active-bg)] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[var(--text-muted)]">
                   {activeFilterCount}
                 </span>
-              ) : null}
-            </button>
-            {filtersOpen ? (
-              <div className="absolute top-full right-0 z-30 mt-1.5 w-64 rounded-xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-3 shadow-lg backdrop-blur-xl">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Milestone types
-                </p>
-                <div
-                  className="flex flex-wrap gap-1.5"
-                  role="group"
-                  aria-label="Milestone filters"
-                >
-                  {availableMilestoneTypes.map((milestoneType) => {
-                    const isActive = visibleMilestoneTypes.has(milestoneType);
-
-                    return (
-                      <button
-                        key={milestoneType}
-                        type="button"
-                        onClick={() => onMilestoneToggle(milestoneType)}
-                        aria-pressed={isActive}
-                        className={`cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition ${
-                          isActive
-                            ? "bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
-                            : "text-[var(--text-muted)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
-                        }`}
-                      >
-                        {MILESTONE_LABELS[milestoneType]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              </button>
             ) : null}
+            <button
+              type="button"
+              onClick={onThemeToggle}
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              className={`timeline-control flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border ${getControlButtonClass(theme === "dark")}`}
+            >
+              {theme === "light" ? <MoonIcon /> : <SunIcon />}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onThemeToggle}
-            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] transition hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
-          >
-            {theme === "light" ? <MoonIcon /> : <SunIcon />}
-          </button>
         </div>
         {availableCategories.length > 0 ? (
           <div
@@ -221,11 +375,7 @@ export function ControlsBar({
                   type="button"
                   onClick={() => onCategoryToggle(category)}
                   aria-pressed={isActive}
-                  className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    isActive
-                      ? "bg-[var(--accent-primary)] text-[var(--page-bg)]"
-                      : "border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
-                  }`}
+                  className={`timeline-control min-h-9 cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${getControlButtonClass(isActive)}`}
                 >
                   {CATEGORY_LABELS[category]}
                 </button>

@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeEach(() => {
+  vi.resetModules();
   vi.restoreAllMocks();
 });
 
@@ -35,7 +36,7 @@ describe("getConferences", () => {
     expect(result[0].shortName).toBe("AAAI");
   });
 
-  it("falls back to cache when both fetches fail", async () => {
+  it("falls back to cache when merged live data is empty", async () => {
     vi.doMock("./fetch-ccfddl", () => ({
       fetchCcfddl: vi.fn().mockResolvedValue([]),
     }));
@@ -46,6 +47,25 @@ describe("getConferences", () => {
     const { getConferences } = await import("./get-conferences");
     const result = await getConferences();
 
-    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]).toHaveProperty("milestones");
+  });
+
+  it("falls back to static conferences when cache is empty", async () => {
+    vi.doMock("./fetch-ccfddl", () => ({
+      fetchCcfddl: vi.fn().mockRejectedValue(new Error("network down")),
+    }));
+    vi.doMock("./fetch-hf", () => ({
+      fetchHfDeadlines: vi.fn().mockRejectedValue(new Error("network down")),
+    }));
+    vi.doMock("./cache.json", () => ({
+      default: [],
+    }));
+
+    const { conferences: staticConferences } = await import("@/data/conferences");
+    const { getConferences } = await import("./get-conferences");
+    const result = await getConferences();
+
+    expect(result).toEqual(staticConferences);
   });
 });
