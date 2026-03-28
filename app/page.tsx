@@ -1,17 +1,10 @@
-import { headers } from "next/headers";
-import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "@/components/timeline/timeline-browser";
+import { getConferences } from "@/lib/data/get-conferences";
+
+export const revalidate = 86400;
 
 export default async function Home() {
-  const requestHeaders = await headers();
-  const viewerTimeZone =
-    requestHeaders.get("x-vercel-ip-timezone") ?? undefined;
+  const conferences = await getConferences();
 
-  return (
-    <TimelineBrowser
-      conferences={conferences}
-      now={new Date()}
-      viewerTimeZone={viewerTimeZone}
-    />
-  );
+  return <TimelineBrowser conferences={conferences} now={new Date()} />;
 }

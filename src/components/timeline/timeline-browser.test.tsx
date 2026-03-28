@@ -1,65 +1,10 @@
-import { act } from "react";
-import { hydrateRoot } from "react-dom/client";
-import { renderToString } from "react-dom/server";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
 import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "./timeline-browser";
 
-function setViewportWidth(width: number) {
-  Object.defineProperty(window, "innerWidth", {
-    configurable: true,
-    value: width,
-    writable: true,
-  });
-}
-
-function setScrollPosition(scrollY: number) {
-  Object.defineProperty(window, "scrollY", {
-    configurable: true,
-    value: scrollY,
-    writable: true,
-  });
-}
-
-beforeEach(() => {
-  window.localStorage.clear();
-  setViewportWidth(1280);
-  setScrollPosition(0);
-});
-
-async function waitForMenuState(
-  expected: Partial<{
-    compact: string;
-    collapsed: string;
-    layout: string;
-  }>,
-) {
-  await waitFor(() => {
-    const menu = screen.getByTestId("timeline-menu");
-
-    if (expected.layout) {
-      expect(menu).toHaveAttribute("data-layout", expected.layout);
-    }
-
-    if (expected.compact) {
-      expect(menu).toHaveAttribute("data-compact", expected.compact);
-    }
-
-    if (expected.collapsed) {
-      expect(menu).toHaveAttribute("data-collapsed", expected.collapsed);
-    }
-  });
-}
-
 it("renders one shared gantt surface and supports dark mode", async () => {
   const user = userEvent.setup();
-
-  const themeColorMeta = document.createElement("meta");
-  themeColorMeta.setAttribute("name", "theme-color");
-  themeColorMeta.setAttribute("content", "#f6f3ed");
-  document.head.appendChild(themeColorMeta);
 
   render(
     <TimelineBrowser
@@ -68,34 +13,22 @@ it("renders one shared gantt surface and supports dark mode", async () => {
     />,
   );
 
-  await waitForMenuState({ layout: "desktop", collapsed: "false" });
-
   const browser = screen.getByTestId("timeline-browser");
 
   expect(
     screen.getByPlaceholderText(/search conferences/i),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "6M" })).toBeInTheDocument();
-  expect(screen.getAllByText(conferences[0]!.shortName).length).toBeGreaterThan(0);
+  expect(screen.getByText(conferences[0]!.shortName)).toBeInTheDocument();
   expect(screen.getAllByTestId("timeline-surface")).toHaveLength(1);
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Full paper/i);
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Rebuttal/i);
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Final decision/i);
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Conference/i);
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent(/Today/i);
   expect(browser).toHaveAttribute("data-theme", "light");
-  expect(screen.queryByText("Collapse")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /collapse menu/i })).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: /dark mode/i }));
 
   expect(browser).toHaveAttribute("data-theme", "dark");
-  expect(document.documentElement).toHaveAttribute("data-theme", "dark");
-  expect(document.body).toHaveAttribute("data-theme", "dark");
-  expect(themeColorMeta).toHaveAttribute("content", "#070b14");
 });
 
-it("shows active and past sections, a today marker, and inline details on click", async () => {
+it("shows active and past sections, a today marker, and hover details", async () => {
   const user = userEvent.setup();
 
   render(
@@ -110,195 +43,62 @@ it("shows active and past sections, a today marker, and inline details on click"
   expect(screen.getByTestId("today-line")).toBeInTheDocument();
   expect(screen.getAllByLabelText(/camera-ready/i).length).toBeGreaterThan(0);
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
-  expect(screen.getAllByText("NeurIPS").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("EMNLP").length).toBeGreaterThan(0);
+  expect(screen.queryByText("NeurIPS")).toBeInTheDocument();
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
-  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
 
-  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+  await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
 
-  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
-    "aria-hidden",
-    "false",
-  );
-  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveTextContent(
-    conferences[0]!.location,
-  );
+  expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
 });
 
-it("renders a compact legend and shows the NeurIPS unpublished rebuttal note on expand", async () => {
+it("shows the clear action for non-default preset and milestone filters", async () => {
   const user = userEvent.setup();
 
   render(
     <TimelineBrowser
       conferences={conferences}
-      now={new Date("2026-03-26T00:00:00Z")}
+      now={new Date("2025-04-20T00:00:00Z")}
     />,
   );
 
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Legend");
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Full paper");
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Rebuttal");
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Final decision");
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Conference");
-  expect(screen.getByTestId("timeline-legend")).toHaveTextContent("Today");
+  expect(screen.getByText("AAAI")).toBeInTheDocument();
 
-  await user.click(screen.getByTestId("conference-trigger-neurips-2026"));
+  await user.click(screen.getByRole("button", { name: "3M" }));
 
   expect(
-    screen.getByTestId("conference-detail-note-neurips-2026"),
-  ).toHaveTextContent(/rebuttal/i);
+    screen.getByText("No conferences match the current filters."),
+  ).toBeInTheDocument();
   expect(
-    screen.getByTestId("conference-detail-note-neurips-2026"),
-  ).toHaveTextContent(/not.*announced/i);
-});
+    screen.getByRole("button", { name: /clear filters/i }),
+  ).toBeInTheDocument();
 
-it("shows Abstract milestones by default when they differ from the full paper deadline", () => {
-  render(
-    <TimelineBrowser
-      conferences={conferences}
-      now={new Date("2026-03-26T00:00:00Z")}
-    />,
-  );
+  await user.click(screen.getByRole("button", { name: /clear filters/i }));
 
-  expect(screen.getAllByLabelText("Abstract").length).toBeGreaterThan(0);
-});
+  expect(screen.getByText("AAAI")).toBeInTheDocument();
 
-it("collapses the desktop sidebar and restores the preference on rerender", async () => {
-  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: /milestones/i }));
 
-  const firstRender = render(
-    <TimelineBrowser
-      conferences={conferences}
-      now={new Date("2026-03-26T00:00:00Z")}
-    />,
-  );
-
-  await waitForMenuState({ layout: "desktop", collapsed: "false" });
-
-  await user.click(screen.getByRole("button", { name: /collapse menu/i }));
-
-  await waitForMenuState({ layout: "desktop", collapsed: "true" });
-  expect(screen.queryByText("Open")).not.toBeInTheDocument();
-  await waitFor(() => {
-    expect(
-      window.localStorage.getItem("timeline.desktopMenuCollapsed"),
-    ).toBe("true");
+  const milestoneButtons = within(
+    screen.getByRole("group", { name: /milestone filters/i }),
+  ).getAllByRole("button", {
+    pressed: true,
   });
 
-  firstRender.unmount();
+  for (const button of milestoneButtons) {
+    await user.click(button);
+  }
 
-  render(
-    <TimelineBrowser
-      conferences={conferences}
-      now={new Date("2026-03-26T00:00:00Z")}
-    />,
-  );
-
-  await waitForMenuState({ layout: "desktop", collapsed: "true" });
   expect(
-    screen.getByRole("button", { name: /expand menu/i }),
+    screen.getByText("No conferences match the current filters."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /clear filters/i }),
   ).toBeInTheDocument();
 });
 
-it("hydrates the desktop menu without server-client markup drift before restoring stored preference", async () => {
-  setViewportWidth(1280);
-  window.localStorage.setItem("timeline.desktopMenuCollapsed", "true");
-
-  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-  const originalWindow = globalThis.window;
-
-  // Simulate the server render where browser globals are unavailable.
-  vi.stubGlobal("window", undefined);
-
-  const html = renderToString(
-    <TimelineBrowser
-      conferences={conferences}
-      now={new Date("2026-03-26T00:00:00Z")}
-    />,
-  );
-
-  vi.stubGlobal("window", originalWindow);
-
-  const container = document.createElement("div");
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  await act(async () => {
-    hydrateRoot(
-      container,
-      <TimelineBrowser
-        conferences={conferences}
-        now={new Date("2026-03-26T00:00:00Z")}
-      />,
-    );
-  });
-
-  expect(consoleError).not.toHaveBeenCalled();
-  await waitFor(() => {
-    expect(
-      container.querySelector("[data-testid='timeline-menu']"),
-    ).toHaveAttribute("data-collapsed", "true");
-  });
-
-  consoleError.mockRestore();
-  container.remove();
-});
-
-it("hydrates the mobile compact menu without server-client markup drift", async () => {
-  setViewportWidth(390);
-  setScrollPosition(180);
-
-  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-  const originalWindow = globalThis.window;
-
-  vi.stubGlobal("window", undefined);
-
-  const html = renderToString(
-    <TimelineBrowser
-      conferences={conferences}
-      now={new Date("2026-03-26T00:00:00Z")}
-    />,
-  );
-
-  vi.stubGlobal("window", originalWindow);
-
-  const container = document.createElement("div");
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  await act(async () => {
-    hydrateRoot(
-      container,
-      <TimelineBrowser
-        conferences={conferences}
-        now={new Date("2026-03-26T00:00:00Z")}
-      />,
-    );
-  });
-
-  expect(consoleError).not.toHaveBeenCalled();
-  await waitFor(() => {
-    expect(
-      container.querySelector("[data-testid='timeline-menu']"),
-    ).toHaveAttribute("data-layout", "mobile");
-    expect(
-      container.querySelector("[data-testid='timeline-menu']"),
-    ).toHaveAttribute("data-compact", "true");
-  });
-
-  consoleError.mockRestore();
-  container.remove();
-});
-
-it("switches the mobile menu into compact mode after scrolling and restores filters on demand", async () => {
+it("drags the timeline surface horizontally with pointer input", async () => {
   const user = userEvent.setup();
 
-  setViewportWidth(390);
-
   render(
     <TimelineBrowser
       conferences={conferences}
@@ -306,95 +106,68 @@ it("switches the mobile menu into compact mode after scrolling and restores filt
     />,
   );
 
-  await waitForMenuState({ layout: "mobile", compact: "false" });
+  const surface = screen.getByTestId("timeline-surface");
 
-  setScrollPosition(180);
-  fireEvent.scroll(window);
+  Object.defineProperty(surface, "scrollLeft", {
+    value: 120,
+    writable: true,
+  });
+  Object.defineProperty(surface, "scrollWidth", {
+    value: 2000,
+    configurable: true,
+  });
+  Object.defineProperty(surface, "clientWidth", {
+    value: 800,
+    configurable: true,
+  });
+  Object.defineProperty(surface, "setPointerCapture", {
+    value: vi.fn(),
+    configurable: true,
+  });
+  Object.defineProperty(surface, "releasePointerCapture", {
+    value: vi.fn(),
+    configurable: true,
+  });
 
-  await waitForMenuState({ layout: "mobile", compact: "true" });
-  expect(screen.getByRole("button", { name: /filters/i })).toBeInTheDocument();
-  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
-    "data-state",
-    "collapsed",
-  );
-  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
-  expect(screen.getByTestId("timeline-menu-compact")).toHaveAttribute(
-    "data-state",
-    "visible",
-  );
+  await user.pointer([
+    {
+      target: surface,
+      keys: "[MouseLeft>]",
+      coords: { x: 300, y: 20 },
+    },
+    {
+      target: surface,
+      coords: { x: 220, y: 20 },
+    },
+    {
+      target: surface,
+      keys: "[/MouseLeft]",
+    },
+  ]);
 
-  await user.click(screen.getByRole("button", { name: /filters/i }));
-
-  await waitForMenuState({ layout: "mobile", compact: "false" });
-  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
-    "data-state",
-    "expanded",
-  );
-  expect(screen.getByTestId("timeline-menu-expanded")).toHaveAttribute(
-    "aria-hidden",
-    "false",
-  );
-  expect(screen.getByTestId("timeline-menu-compact")).toHaveAttribute(
-    "data-state",
-    "hidden",
-  );
-  expect(
-    screen.getByPlaceholderText(/search conferences/i),
-  ).toBeInTheDocument();
+  expect(surface.scrollLeft).toBeGreaterThan(120);
 });
 
-it("starts with a horizontally scrollable timeline focused on the default two-month back and four-month forward window", async () => {
-  const clientWidthSpy = vi
-    .spyOn(HTMLElement.prototype, "clientWidth", "get")
-    .mockReturnValue(960);
-  const ResizeObserverMock = class {
-    constructor(
-      private readonly callback: ResizeObserverCallback,
-    ) {}
-
-    observe(target: Element) {
-      this.callback(
-        [
-          {
-            target,
-            contentRect: {
-              width: 960,
-              height: 480,
-              top: 0,
-              left: 0,
-              bottom: 480,
-              right: 960,
-              x: 0,
-              y: 0,
-              toJSON: () => ({}),
-            },
-          } as ResizeObserverEntry,
-        ],
-        this as unknown as ResizeObserver,
-      );
-    }
-
-    unobserve() {}
-
-    disconnect() {}
-  };
-
-  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+it("keeps the empty-data state stable when the all-range preset is selected", async () => {
+  const user = userEvent.setup();
 
   render(
     <TimelineBrowser
-      conferences={conferences}
-      now={new Date("2026-03-27T00:00:00Z")}
+      conferences={[]}
+      now={new Date("2026-03-26T00:00:00Z")}
     />,
   );
 
-  await waitFor(() => {
-    expect(screen.getByTestId("timeline-surface").scrollLeft).toBeGreaterThan(0);
-  });
+  expect(
+    screen.getByText("No conference data is available right now."),
+  ).toBeInTheDocument();
 
-  clientWidthSpy.mockRestore();
-  vi.unstubAllGlobals();
+  await user.click(screen.getByRole("button", { name: "All" }));
+
+  expect(
+    screen.getByText("No conference data is available right now."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Try again later or refresh after the data sources recover."),
+  ).toBeInTheDocument();
 });

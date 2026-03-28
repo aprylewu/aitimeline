@@ -1,69 +1,60 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, FocusEvent as ReactFocusEvent } from "react";
 import {
+  eachMonthOfInterval,
   format,
   isAfter,
   isBefore,
   parseISO,
+  startOfMonth,
 } from "date-fns";
 import { ConferenceMetaColumn } from "./conference-meta-column";
 import { MilestoneTooltip } from "./milestone-tooltip";
 import { getPrimaryPathTypes } from "@/lib/timeline/key-path";
-import {
-  addMonthsInTimeZone,
-  formatCalendarDateInTimeZone,
-  getMilestoneInstant,
-  getMilestoneRange,
-  getMonthKey,
-  getMonthLabel,
-  getZonedMonthStart,
-  resolveViewerTimeZone,
-} from "@/lib/timeline/milestone-time";
 import { getPositionPercent } from "@/lib/timeline/positioning";
 import type { Conference, Milestone, MilestoneType } from "@/types/conference";
 
+interface TimelineSection {
+  conferences: Conference[];
+  id: string;
+  label: string;
+}
+
 interface TimelineGridProps {
-  sections: Array<{
-    conferences: Conference[];
-    id: string;
-    label: string;
-  }>;
-  visibleMilestoneTypes?: Set<MilestoneType>;
+  sections: TimelineSection[];
   visibleRange: {
     start: Date;
     end: Date;
   };
-  width?: number;
   now: Date;
-  viewerTimeZone?: string;
 }
 
-interface HoveredMilestone {
-  conferenceId: string;
-  milestone: Milestone;
-}
-
-interface RangeSegment {
-  end: Milestone;
-  key: string;
-  start: Milestone;
-  tone: TimelineTone;
-  top: string;
-}
-
-interface MonthCell {
-  end: Date;
-  key: string;
-  label: string;
+interface PositionedMilestone {
+  isPrimaryPath: boolean;
   left: number;
-  start: Date;
+  milestone: Milestone;
+  markerStyle: CSSProperties;
+  tone: TimelineTone;
+}
+
+interface PositionedRangeSegment {
+  key: string;
+  left: number;
+  tone: TimelineTone;
   width: number;
 }
 
-interface RenderWindow {
-  end: Date;
-  start: Date;
+interface PreparedConferenceLayout {
+  markers: PositionedMilestone[];
+  primaryPath: {
+    endType: MilestoneType;
+    left: number;
+    startType: MilestoneType;
+    width: number;
+  } | null;
+  rangeSegments: PositionedRangeSegment[];
 }
 
 type TimelineTone =
@@ -73,280 +64,38 @@ type TimelineTone =
   | "notification"
   | "rebuttal";
 
-function findMilestone(
-  milestones: Milestone[],
-  type: MilestoneType,
-): Milestone | undefined {
-  return milestones.find((milestone) => milestone.type === type);
-}
+const RANGE_SEGMENT_CONFIGS = [
+  {
+    endType: "rebuttalEnd",
+    key: "rebuttal",
+    startType: "rebuttalStart",
+    tone: "rebuttal",
+  },
+  {
+    endType: "conferenceEnd",
+    key: "conference",
+    startType: "conferenceStart",
+    tone: "conference",
+  },
+] as const;
 
-function getPrimaryPathMilestones(milestones: Milestone[]) {
-  return getPrimaryPathTypes(milestones)
-    .map((type) => findMilestone(milestones, type))
-    .filter(Boolean) as Milestone[];
-}
-
-function getOverallConferenceBoundaryMilestones(
-  milestones: Milestone[],
-  viewerTimeZone?: string,
-) {
-  const conferenceStart = findMilestone(milestones, "conferenceStart");
-  const conferenceEnd = findMilestone(milestones, "conferenceEnd");
-  const workshop = findMilestone(milestones, "workshop");
-  const startCandidates = [conferenceStart, workshop].filter(Boolean) as Milestone[];
-  const endCandidates = [conferenceEnd, workshop].filter(Boolean) as Milestone[];
-
-  const overallStart = startCandidates.reduce<Milestone | undefined>(
-    (earliest, candidate) => {
-      if (!earliest) {
-        return candidate;
-      }
-
-      return getMilestoneRange(candidate, viewerTimeZone).start.getTime() <
-        getMilestoneRange(earliest, viewerTimeZone).start.getTime()
-        ? candidate
-        : earliest;
-    },
-    undefined,
-  );
-  const overallEnd = endCandidates.reduce<Milestone | undefined>(
-    (latest, candidate) => {
-      if (!latest) {
-        return candidate;
-      }
-
-      return getMilestoneRange(candidate, viewerTimeZone).end.getTime() >
-        getMilestoneRange(latest, viewerTimeZone).end.getTime()
-        ? candidate
-        : latest;
-    },
-    undefined,
-  );
-
-  return {
-    start: overallStart
-      ? {
-          ...overallStart,
-          id: `${overallStart.id}-conference-start-display`,
-          type: "conferenceStart" as const,
-          label: conferenceStart?.label ?? "Conference starts",
-          dateStart: overallStart.dateStart,
-          dateEnd: undefined,
-        }
-      : undefined,
-    end: overallEnd
-      ? {
-          ...overallEnd,
-          id: `${overallEnd.id}-conference-end-display`,
-          type: "conferenceEnd" as const,
-          label: conferenceEnd?.label ?? "Conference ends",
-          dateStart: overallEnd.dateEnd ?? overallEnd.dateStart,
-          dateEnd: undefined,
-        }
-      : undefined,
-  };
-}
-
-function getTimelineSpanMilestones(
-  milestones: Milestone[],
-  viewerTimeZone?: string,
-) {
-  if (milestones.length === 0) {
-    return null;
-  }
-
-  const conferenceBoundaryMilestones = getOverallConferenceBoundaryMilestones(
-    milestones,
-    viewerTimeZone,
-  );
-
-  return {
-    start: findMilestone(milestones, "abstract") ?? milestones[0]!,
-    end:
-      conferenceBoundaryMilestones.end ??
-      milestones[milestones.length - 1]!,
-  };
-}
-
-function getRangeSegments(
-  milestones: Milestone[],
-  viewerTimeZone?: string,
-): RangeSegment[] {
-  const rebuttalStart = findMilestone(milestones, "rebuttalStart");
-  const rebuttalEnd = findMilestone(milestones, "rebuttalEnd");
-  const conferenceBoundaryMilestones = getOverallConferenceBoundaryMilestones(
-    milestones,
-    viewerTimeZone,
-  );
-
-  return [
-    rebuttalStart && rebuttalEnd
-      ? {
-          key: "rebuttal",
-          start: rebuttalStart,
-          end: rebuttalEnd,
-          tone: "rebuttal",
-          top: "top-[22px]",
-        }
-      : null,
-    conferenceBoundaryMilestones.start && conferenceBoundaryMilestones.end
-      ? {
-          key: "conference",
-          start: conferenceBoundaryMilestones.start,
-          end: conferenceBoundaryMilestones.end,
-          tone: "conference",
-          top: "top-[22px]",
-        }
-      : null,
-  ].filter(Boolean) as RangeSegment[];
-}
-
-function areMilestonesEquivalent(
-  left: Milestone,
-  right: Milestone,
-  viewerTimeZone?: string,
-) {
-  const leftRange = getMilestoneRange(left, viewerTimeZone);
-  const rightRange = getMilestoneRange(right, viewerTimeZone);
-
-  return (
-    leftRange.start.getTime() === rightRange.start.getTime() &&
-    leftRange.end.getTime() === rightRange.end.getTime()
-  );
-}
-
-function getRenderedMilestones(args: {
-  milestones: Milestone[];
-  visibleMilestoneTypes: Set<MilestoneType>;
-  viewerTimeZone?: string;
-}) {
-  const { milestones, visibleMilestoneTypes, viewerTimeZone } = args;
-  const fullPaperMilestone = findMilestone(milestones, "fullPaper");
-  const conferenceBoundaryMilestones = getOverallConferenceBoundaryMilestones(
-    milestones,
-    viewerTimeZone,
-  );
-  const renderedMilestones = milestones.filter((milestone) => {
-    if (
-      !visibleMilestoneTypes.has(milestone.type) ||
-      milestone.type === "conferenceStart" ||
-      milestone.type === "conferenceEnd" ||
-      milestone.type === "workshop"
-    ) {
-      return false;
-    }
-
-    if (
-      milestone.type === "abstract" &&
-      fullPaperMilestone &&
-      areMilestonesEquivalent(milestone, fullPaperMilestone, viewerTimeZone)
-    ) {
-      return false;
-    }
-
-    return true;
-  });
-
-  if (visibleMilestoneTypes.has("conferenceStart") && conferenceBoundaryMilestones.start) {
-    renderedMilestones.push(conferenceBoundaryMilestones.start);
-  }
-
-  if (visibleMilestoneTypes.has("conferenceEnd") && conferenceBoundaryMilestones.end) {
-    renderedMilestones.push(conferenceBoundaryMilestones.end);
-  }
-
-  return renderedMilestones.sort(
-    (left, right) =>
-      getMilestoneInstant(left, viewerTimeZone).getTime() -
-      getMilestoneInstant(right, viewerTimeZone).getTime(),
-  );
-}
-
-function getTickDates(
-  range: { start: Date; end: Date },
-  viewerTimeZone: string,
-) {
-  const dates: Date[] = [];
-  let current = getZonedMonthStart(range.start, viewerTimeZone);
-
-  while (current.getTime() <= range.end.getTime()) {
-    dates.push(current);
-    current = addMonthsInTimeZone(current, 1, viewerTimeZone);
-  }
-
-  return dates;
-}
-
-function getMonthCells(
-  range: { start: Date; end: Date },
-  viewerTimeZone: string,
-): MonthCell[] {
-  return getTickDates(range, viewerTimeZone).map((monthStart) => {
-    const nextMonthStart = addMonthsInTimeZone(monthStart, 1, viewerTimeZone);
-    const cellStart =
-      monthStart.getTime() < range.start.getTime() ? range.start : monthStart;
-    const cellEnd =
-      nextMonthStart.getTime() > range.end.getTime() ? range.end : nextMonthStart;
-    const left = getPositionPercent(cellStart, range);
-    const width = Math.max(0, getPositionPercent(cellEnd, range) - left);
-
-    return {
-      key: getMonthKey(monthStart, viewerTimeZone),
-      label: getMonthLabel(monthStart, viewerTimeZone),
-      left,
-      start: monthStart,
-      end: nextMonthStart,
-      width,
-    };
+function getTickDates(range: { start: Date; end: Date }) {
+  return eachMonthOfInterval({
+    start: startOfMonth(range.start),
+    end: range.end,
   });
 }
 
-function getRenderWindow(
-  visibleRange: { start: Date; end: Date },
-): RenderWindow {
-  return {
-    start: visibleRange.start,
-    end: visibleRange.end,
-  };
-}
-
-function clipTimelineSpan(
-  start: Date,
-  end: Date,
-  renderWindow: RenderWindow,
-) {
-  const clippedStart = isBefore(start, renderWindow.start)
-    ? renderWindow.start
-    : start;
-  const clippedEnd = isAfter(end, renderWindow.end) ? renderWindow.end : end;
-
-  if (clippedEnd.getTime() <= clippedStart.getTime()) {
-    return null;
+function getTickLabelTransform(index: number, tickCount: number) {
+  if (index === 0) {
+    return "translateX(0%)";
   }
 
-  return {
-    start: clippedStart,
-    end: clippedEnd,
-  };
-}
-
-function isWithinRenderWindow(value: Date, renderWindow: RenderWindow) {
-  return (
-    value.getTime() >= renderWindow.start.getTime() &&
-    value.getTime() < renderWindow.end.getTime()
-  );
-}
-
-function toggleExpandedConference(current: Set<string>, conferenceId: string) {
-  const next = new Set(current);
-
-  if (next.has(conferenceId)) {
-    next.delete(conferenceId);
-  } else {
-    next.add(conferenceId);
+  if (index === tickCount - 1) {
+    return "translateX(-100%)";
   }
 
-  return next;
+  return "translateX(-50%)";
 }
 
 function getMilestoneTone(type: MilestoneType): TimelineTone {
@@ -383,11 +132,11 @@ function getToneClass(tone: TimelineTone, variant: "marker" | "range") {
   }
 
   if (tone === "fullPaper") {
-    return "border-[#16a34a] bg-[#16a34a]";
+    return "border-[var(--timeline-full-paper)] bg-[var(--timeline-full-paper)]";
   }
 
   if (tone === "notification") {
-    return "border-[#dc2626] bg-[#dc2626]";
+    return "border-[var(--timeline-notification)] bg-[var(--timeline-notification)]";
   }
 
   if (tone === "rebuttal") {
@@ -401,392 +150,315 @@ function getToneClass(tone: TimelineTone, variant: "marker" | "range") {
   return "border-[var(--timeline-neutral)] bg-[var(--timeline-neutral)]";
 }
 
+function getMarkerGlow(tone: TimelineTone) {
+  if (tone === "fullPaper") {
+    return "color-mix(in srgb, var(--timeline-full-paper) 20%, transparent)";
+  }
+
+  if (tone === "notification") {
+    return "color-mix(in srgb, var(--timeline-notification) 20%, transparent)";
+  }
+
+  if (tone === "rebuttal") {
+    return "color-mix(in srgb, var(--timeline-rebuttal) 20%, transparent)";
+  }
+
+  if (tone === "conference") {
+    return "color-mix(in srgb, var(--timeline-conference) 20%, transparent)";
+  }
+
+  return "var(--grid-glow)";
+}
+
 function isWithinVisibleRange(value: Date, range: { start: Date; end: Date }) {
   return !isBefore(value, range.start) && !isAfter(value, range.end);
 }
 
-function formatConferenceDateRange(milestones: Milestone[]) {
-  const conferenceStart = findMilestone(milestones, "conferenceStart");
-  const conferenceEnd = findMilestone(milestones, "conferenceEnd");
-  const workshop = findMilestone(milestones, "workshop");
-  const startDateLabel = [conferenceStart?.dateStart, workshop?.dateStart]
-    .filter(Boolean)
-    .sort()[0];
-  const endDateLabel = [conferenceEnd?.dateStart, workshop?.dateEnd ?? workshop?.dateStart]
-    .filter(Boolean)
-    .sort()
-    .at(-1);
+function prepareConferenceLayout(
+  conference: Conference,
+  visibleRange: { start: Date; end: Date },
+): PreparedConferenceLayout {
+  const primaryPathTypes = new Set(getPrimaryPathTypes(conference.milestones));
+  const markers = conference.milestones.map((milestone) => {
+    const left = getPositionPercent(parseISO(milestone.dateStart), visibleRange);
+    const tone = getMilestoneTone(milestone.type);
 
-  if (!startDateLabel && !endDateLabel) {
-    return "TBA";
-  }
+    return {
+      isPrimaryPath: primaryPathTypes.has(milestone.type),
+      left,
+      milestone,
+      markerStyle: {
+        left: `${left}%`,
+        "--marker-glow": getMarkerGlow(tone),
+      } as CSSProperties,
+      tone,
+    };
+  });
+  const markersByType = new Map(
+    markers.map((marker) => [marker.milestone.type, marker] as const),
+  );
+  const primaryMarkers = markers.filter((marker) => marker.isPrimaryPath);
+  const firstPrimaryMilestone = primaryMarkers[0];
+  const lastPrimaryMilestone = primaryMarkers[primaryMarkers.length - 1];
+  const primaryPath =
+    firstPrimaryMilestone && lastPrimaryMilestone
+      ? {
+          endType: lastPrimaryMilestone.milestone.type,
+          left: firstPrimaryMilestone.left,
+          startType: firstPrimaryMilestone.milestone.type,
+          width: Math.max(2, lastPrimaryMilestone.left - firstPrimaryMilestone.left),
+        }
+      : null;
+  const rangeSegments = RANGE_SEGMENT_CONFIGS.flatMap((config) => {
+    const startMarker = markersByType.get(config.startType);
+    const endMarker = markersByType.get(config.endType);
 
-  if (startDateLabel && !endDateLabel) {
-    return format(parseISO(startDateLabel), "MMM d, yyyy");
-  }
-
-  if (!startDateLabel && endDateLabel) {
-    return format(parseISO(endDateLabel), "MMM d, yyyy");
-  }
-
-  const startDate = parseISO(startDateLabel!);
-  const endDate = parseISO(endDateLabel!);
-
-  if (format(startDate, "yyyy-MM-dd") === format(endDate, "yyyy-MM-dd")) {
-    return format(startDate, "MMM d, yyyy");
-  }
-
-  if (format(startDate, "yyyy") === format(endDate, "yyyy")) {
-    if (format(startDate, "MMM") === format(endDate, "MMM")) {
-      return `${format(startDate, "MMM d")}-${format(endDate, "d, yyyy")}`;
+    if (!startMarker || !endMarker) {
+      return [];
     }
 
-    return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
-  }
+    return [
+      {
+        key: config.key,
+        left: startMarker.left,
+        tone: config.tone,
+        width: Math.max(1.5, endMarker.left - startMarker.left),
+      },
+    ];
+  });
 
-  const startLabel = format(startDate, "MMM d, yyyy");
-  const endLabel = format(endDate, "MMM d, yyyy");
-
-  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+  return { markers, primaryPath, rangeSegments };
 }
 
-function getConferenceSummary(conference: Conference) {
-  const dateLabel = formatConferenceDateRange(conference.milestones);
-
-  return dateLabel === "TBA"
-    ? `Dates TBA, ${conference.location}`
-    : `${dateLabel}, ${conference.location}`;
-}
-
-function getRankingEntries(conference: Conference) {
-  return Object.entries(conference.rankings).filter(
-    ([, value]) => value,
-  );
-}
-
-function ConferenceDetailStrip({
-  conference,
-  expanded,
-}: {
+interface TimelineMarkerProps {
   conference: Conference;
-  expanded: boolean;
-}) {
-  const rankingEntries = getRankingEntries(conference);
-
-  return (
-    <div className="conference-inline-strip flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span
-            data-testid={`conference-detail-title-${conference.id}`}
-            className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
-          >
-            {conference.title}
-          </span>
-          <span
-            data-testid={`conference-detail-summary-${conference.id}`}
-            className="text-[12px] leading-5 text-[var(--text-muted)]"
-          >
-            {getConferenceSummary(conference)}
-          </span>
-        </div>
-        {conference.cfpUrl ? (
-          <a
-            href={conference.cfpUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            tabIndex={expanded ? 0 : -1}
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
-          >
-            Call For Papers
-          </a>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
-        {rankingEntries.length > 0 ? (
-          rankingEntries.map(([key, value]) => (
-            <span
-              key={`${conference.id}-${key}`}
-              className="font-medium text-[var(--text-primary)]"
-            >
-              <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                {key}
-              </span>{" "}
-              {value}
-            </span>
-          ))
-        ) : (
-          <span className="font-medium text-[var(--text-muted)]">Unranked</span>
-        )}
-        <span className="font-medium uppercase tracking-[0.08em]">
-          {conference.category}
-        </span>
-      </div>
-      {conference.detailNote ? (
-        <p
-          data-testid={`conference-detail-note-${conference.id}`}
-          className="rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--text-muted)]"
-        >
-          {conference.detailNote}
-        </p>
-      ) : null}
-    </div>
-  );
+  marker: PositionedMilestone;
 }
 
-function getDetailRowStateClass(isExpanded: boolean) {
-  return isExpanded
-    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60"
-    : "pointer-events-none border-transparent bg-transparent";
-}
-
-function getDetailPanelClass(isExpanded: boolean) {
-  return isExpanded
-    ? "translate-y-0 opacity-100"
-    : "-translate-y-2 opacity-0";
-}
-
-function getDetailMetaCellClass(isExpanded: boolean) {
-  return isExpanded
-    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60 opacity-100"
-    : "pointer-events-none border-transparent bg-transparent opacity-0";
-}
-
-function ConferenceDetailRow({
+const TimelineMarker = memo(function TimelineMarker({
   conference,
-  expanded,
-}: {
-  conference: Conference;
-  expanded: boolean;
-}) {
-  const detailRowRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const hasInitializedHeightRef = useRef(false);
+  marker,
+}: TimelineMarkerProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [tooltipAnchor, setTooltipAnchor] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
+  const markerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const detailRowNode = detailRowRef.current;
-    const contentNode = contentRef.current;
-
-    if (!detailRowNode || !contentNode) {
+    if (!isHovered) {
       return;
     }
 
-    const measuredHeight = contentNode.scrollHeight;
+    function syncTooltipAnchor() {
+      const rect = markerRef.current?.getBoundingClientRect();
 
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
+      if (!rect) {
+        return;
+      }
 
-    if (expanded) {
-      animationFrameRef.current = window.requestAnimationFrame(() => {
-        detailRowNode.style.height = `${contentNode.scrollHeight}px`;
-        animationFrameRef.current = null;
+      setTooltipAnchor({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
       });
-
-      return;
     }
 
-    detailRowNode.style.height = `${measuredHeight}px`;
-    animationFrameRef.current = window.requestAnimationFrame(() => {
-      detailRowNode.style.height = "0px";
-      animationFrameRef.current = null;
-    });
+    syncTooltipAnchor();
+    window.addEventListener("resize", syncTooltipAnchor);
+    window.addEventListener("scroll", syncTooltipAnchor, true);
 
     return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+      window.removeEventListener("resize", syncTooltipAnchor);
+      window.removeEventListener("scroll", syncTooltipAnchor, true);
     };
-  }, [expanded]);
-
-  useEffect(() => {
-    if (!expanded) {
-      return;
-    }
-
-    const detailRowNode = detailRowRef.current;
-    const contentNode = contentRef.current;
-
-    if (!detailRowNode || !contentNode) {
-      return;
-    }
-
-    const updateHeight = () => {
-      detailRowNode.style.height = `${contentNode.scrollHeight}px`;
-    };
-
-    updateHeight();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateHeight);
-
-      return () => {
-        window.removeEventListener("resize", updateHeight);
-      };
-    }
-
-    const resizeObserver = new ResizeObserver(() => {
-      updateHeight();
-    });
-
-    resizeObserver.observe(contentNode);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [expanded]);
-
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
+  }, [isHovered]);
 
   return (
-    <>
-      <div
-        data-testid={`conference-detail-meta-${conference.id}`}
-        aria-hidden={!expanded}
-        className={`timeline-meta-cell sticky left-0 z-20 border-b transition-[opacity,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailMetaCellClass(expanded)}`}
+    <button
+      ref={markerRef}
+      type="button"
+      aria-label={marker.milestone.label}
+      data-primary-path={String(marker.isPrimaryPath)}
+      data-tone={marker.tone}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      className={`timeline-marker absolute rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] ${
+        isHovered ? "z-30" : ""
+      } ${
+        marker.isPrimaryPath
+          ? "top-[22px] h-5 w-5 -translate-x-1/2"
+          : "top-[25px] h-3.5 w-3.5 -translate-x-1/2"
+      }`}
+      style={marker.markerStyle}
+    >
+      <span
+        className={`absolute rounded-full ${getToneClass(marker.tone, "marker")} ${
+          marker.isPrimaryPath ? "inset-[3px]" : "inset-[2px] opacity-50"
+        }`}
       />
-      <div
-        id={`conference-detail-row-${conference.id}`}
-        data-testid={`conference-detail-row-${conference.id}`}
-        data-expanded={String(expanded)}
-        aria-hidden={!expanded}
-        ref={(node) => {
-          detailRowRef.current = node;
-
-          if (node && !hasInitializedHeightRef.current && !expanded) {
-            node.style.height = "0px";
-            hasInitializedHeightRef.current = true;
-          }
-        }}
-        className={`conference-inline-row relative z-10 border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
-      >
-        <div
-          ref={contentRef}
-          data-testid={`conference-detail-content-${conference.id}`}
-          className="px-4 py-2.5"
-        >
-          <div
-            data-testid={`conference-detail-panel-${conference.id}`}
-            className={`conference-inline-row-inner sticky left-[196px] max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
-          >
-            <ConferenceDetailStrip conference={conference} expanded={expanded} />
-          </div>
-        </div>
-      </div>
-    </>
+      {isHovered && tooltipAnchor ? (
+        <MilestoneTooltip
+          anchorRect={tooltipAnchor}
+          conference={conference}
+          milestone={marker.milestone}
+        />
+      ) : null}
+    </button>
   );
+});
+
+interface TimelineConferenceRowProps {
+  conference: Conference;
+  visibleRange: {
+    start: Date;
+    end: Date;
+  };
 }
 
-export function TimelineGrid({
-  sections,
-  visibleMilestoneTypes,
+const TimelineConferenceRow = memo(function TimelineConferenceRow({
+  conference,
   visibleRange,
-  width,
-  now,
-  viewerTimeZone,
-}: TimelineGridProps) {
-  const [hoveredMilestone, setHoveredMilestone] =
-    useState<HoveredMilestone | null>(null);
-  const [hoveredConferenceId, setHoveredConferenceId] = useState<string | null>(
-    null,
+}: TimelineConferenceRowProps) {
+  const [showConferenceDetails, setShowConferenceDetails] = useState(false);
+  const detailCardId = `${conference.id}-detail-card`;
+  const layout = useMemo(
+    () => prepareConferenceLayout(conference, visibleRange),
+    [conference, visibleRange],
   );
-  const [hoverCooldownConferenceId, setHoverCooldownConferenceId] = useState<
-    string | null
-  >(null);
-  const [expandedConferenceIds, setExpandedConferenceIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const hoverRestoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const conferenceTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>(
-    {},
-  );
-  const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
-  const monthCells = getMonthCells(visibleRange, resolvedViewerTimeZone);
-  const renderWindow = getRenderWindow(visibleRange);
-  const todayVisible = isWithinVisibleRange(now, visibleRange);
-  const todayLeft = getPositionPercent(now, visibleRange);
-  const todayDateLabel = formatCalendarDateInTimeZone(
-    now,
-    resolvedViewerTimeZone,
-  );
-  const renderedMilestoneTypes = visibleMilestoneTypes ?? new Set<MilestoneType>([
-    "abstract",
-    "fullPaper",
-    "supplementary",
-    "rebuttalStart",
-    "rebuttalEnd",
-    "notification",
-    "cameraReady",
-    "conferenceStart",
-    "conferenceEnd",
-    "workshop",
-  ]);
 
-  useEffect(() => {
-    return () => {
-      if (hoverRestoreTimeoutRef.current) {
-        clearTimeout(hoverRestoreTimeoutRef.current);
-      }
-    };
-  }, []);
+  function handleMetaBlur(event: ReactFocusEvent<HTMLDivElement>) {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setShowConferenceDetails(false);
+  }
 
   return (
-    <div
-      data-testid="timeline-scroll-content"
-      className="relative min-w-[980px]"
-      style={width ? { width: `${width}px` } : undefined}
-    >
+    <Fragment>
       <div
-        data-testid="timeline-grid-shell"
-        className="relative z-10 grid grid-cols-[180px_minmax(0,1fr)]"
+        className={`timeline-meta-cell relative sticky left-0 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-2.5 py-2 md:px-3.5 ${
+          showConferenceDetails ? "z-40" : "z-10"
+        }`}
+        onMouseEnter={() => setShowConferenceDetails(true)}
+        onMouseLeave={() => setShowConferenceDetails(false)}
+        onFocusCapture={() => setShowConferenceDetails(true)}
+        onBlurCapture={handleMetaBlur}
       >
-        {todayVisible ? (
+        <button
+          type="button"
+          data-testid={`conference-trigger-${conference.id}`}
+          aria-controls={detailCardId}
+          aria-expanded={showConferenceDetails}
+          className="conference-trigger -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-center rounded-lg px-2 py-1.5 text-left"
+        >
+          <ConferenceMetaColumn conference={conference} compact />
+        </button>
+        {showConferenceDetails ? (
           <div
-            data-testid="today-overlay"
-            className="pointer-events-none absolute inset-y-0 left-[180px] right-0 z-[1]"
+            id={detailCardId}
+            role="group"
+            aria-label={`${conference.shortName} details`}
+            data-testid={`conference-detail-card-${conference.id}`}
+            className="conference-detail-card timeline-floating-surface absolute top-1/2 left-2 z-50 w-[min(20rem,calc(100vw-2.5rem))] rounded-xl border border-[var(--panel-border)] p-3.5 shadow-lg md:left-3"
           >
-            <div className="relative mx-4 h-full">
-              <div
-                data-testid="today-line"
-                className="absolute inset-y-0 z-[1] w-[3px] -translate-x-1/2 rounded-full bg-[var(--accent-secondary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent),0_0_18px_color-mix(in_srgb,var(--accent-secondary)_22%,transparent)]"
-                style={{ left: `${todayLeft}%` }}
-              />
-            </div>
+            <ConferenceMetaColumn conference={conference} />
           </div>
         ) : null}
-        <div className="timeline-meta-head sticky left-0 z-30 border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+      </div>
+      <div className="timeline-row border-b border-[var(--panel-border)] px-4">
+        <div className="timeline-row-grid pointer-events-none absolute inset-0" />
+        <div className="absolute top-[31px] left-0 right-0 h-px bg-[var(--path-baseline)]" />
+        {layout.primaryPath ? (
+          <div
+            data-testid={`primary-path-${conference.id}`}
+            data-path-start={layout.primaryPath.startType}
+            data-path-end={layout.primaryPath.endType}
+            className="absolute top-[30px] h-[4px] rounded-full bg-[var(--path-track)]"
+            style={{
+              left: `${layout.primaryPath.left}%`,
+              width: `${layout.primaryPath.width}%`,
+            }}
+          />
+        ) : null}
+        {layout.rangeSegments.map((segment) => (
+          <div
+            data-testid={`range-${conference.id}-${segment.key}`}
+            data-tone={segment.tone}
+            key={`${conference.id}-${segment.key}`}
+            className={`absolute top-[30px] h-[4px] rounded-full ${getToneClass(segment.tone, "range")}`}
+            style={{
+              left: `${segment.left}%`,
+              width: `${segment.width}%`,
+            }}
+          />
+        ))}
+        {layout.markers.map((marker) => (
+          <TimelineMarker
+            key={marker.milestone.id}
+            conference={conference}
+            marker={marker}
+          />
+        ))}
+      </div>
+    </Fragment>
+  );
+});
+
+export const TimelineGrid = memo(function TimelineGrid({
+  sections,
+  visibleRange,
+  now,
+}: TimelineGridProps) {
+  const ticks = useMemo(() => getTickDates(visibleRange), [visibleRange]);
+  const tickPositions = useMemo(
+    () => ticks.map((tick) => getPositionPercent(tick, visibleRange)),
+    [ticks, visibleRange],
+  );
+  const todayVisible = useMemo(
+    () => isWithinVisibleRange(now, visibleRange),
+    [now, visibleRange],
+  );
+  const todayLeft = useMemo(
+    () => getPositionPercent(now, visibleRange),
+    [now, visibleRange],
+  );
+
+  return (
+    <div className="relative min-w-[980px]">
+      <div
+        className="grid"
+        style={{
+          gridTemplateColumns: "var(--timeline-meta-width) minmax(0, 1fr)",
+        }}
+      >
+        <div className="timeline-meta-head sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-3 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
           Venue
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
           <div className="timeline-axis-track">
-            {monthCells.map((monthCell) => {
-              return (
+            {ticks.map((tick, index) => (
+              <div
+                key={tick.toISOString()}
+                className="timeline-axis-tick"
+                style={{ left: `${tickPositions[index]}%` }}
+              >
                 <div
-                  key={monthCell.key}
-                  data-testid={`axis-month-cell-${monthCell.key}`}
-                  className="timeline-axis-cell absolute inset-y-0"
-                  style={{
-                    left: `${monthCell.left}%`,
-                    width: `${monthCell.width}%`,
-                  }}
+                  data-testid={`axis-label-${index}`}
+                  className="timeline-axis-label font-mono text-[10px] font-medium text-[var(--text-muted)] md:text-[11px]"
+                  style={{ transform: getTickLabelTransform(index, ticks.length) }}
                 >
-                  <div className="timeline-axis-label absolute top-[28px] left-1/2 z-10 -translate-x-1/2 text-[13px] font-medium text-[var(--text-muted)]">
-                    {monthCell.label}
-                  </div>
+                  {format(tick, "MMM yyyy")}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
         {sections.map((section) => {
@@ -796,302 +468,46 @@ export function TimelineGrid({
 
           return (
             <Fragment key={section.id}>
-              <div
-                className="timeline-section-label sticky left-0 z-20 border-b border-[var(--panel-border)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]"
-              >
+              <div className="timeline-section-label sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
                 {section.label}
               </div>
               <div className="timeline-section-divider border-b border-[var(--panel-border)]" />
-              {section.conferences.map((conference) => {
-                const primaryPathMilestones = getPrimaryPathMilestones(
-                  conference.milestones,
-                );
-                const timelineSpanMilestones = getTimelineSpanMilestones(
-                  conference.milestones,
-                  resolvedViewerTimeZone,
-                );
-                const primaryPathTypes = new Set(
-                  primaryPathMilestones.map((milestone) => milestone.type),
-                );
-                const rangeSegments = getRangeSegments(
-                  conference.milestones,
-                  resolvedViewerTimeZone,
-                );
-                const renderedMilestones = getRenderedMilestones({
-                  milestones: conference.milestones,
-                  visibleMilestoneTypes: renderedMilestoneTypes,
-                  viewerTimeZone: resolvedViewerTimeZone,
-                });
-                const showConferenceDetails = expandedConferenceIds.has(
-                  conference.id,
-                );
-                const showHoverCooldown =
-                  hoverCooldownConferenceId === conference.id;
-                const showTriggerHover = hoveredConferenceId === conference.id;
-
-                return (
-                  <Fragment key={conference.id}>
-                    <div className="timeline-meta-cell sticky left-0 z-20 flex min-h-[56px] items-center justify-center border-b border-[var(--panel-border)] px-3 py-1.5">
-                      <button
-                        ref={(node) => {
-                          conferenceTriggerRefs.current[conference.id] = node;
-                        }}
-                        type="button"
-                        data-testid={`conference-trigger-${conference.id}`}
-                        aria-expanded={showConferenceDetails}
-                        aria-controls={`conference-detail-row-${conference.id}`}
-                        onMouseEnter={() => {
-                          if (showHoverCooldown) {
-                            return;
-                          }
-
-                          setHoveredConferenceId(conference.id);
-                        }}
-                        onMouseLeave={() => {
-                          setHoveredConferenceId((current) =>
-                            current === conference.id ? null : current,
-                          );
-                        }}
-                        onClick={() => {
-                          setExpandedConferenceIds((current) =>
-                            toggleExpandedConference(current, conference.id),
-                          );
-                          setHoveredConferenceId((current) =>
-                            current === conference.id ? null : current,
-                          );
-                          setHoverCooldownConferenceId(conference.id);
-
-                          if (hoverRestoreTimeoutRef.current) {
-                            clearTimeout(hoverRestoreTimeoutRef.current);
-                          }
-
-                          hoverRestoreTimeoutRef.current = setTimeout(() => {
-                            setHoverCooldownConferenceId((current) =>
-                              current === conference.id ? null : current,
-                            );
-
-                            if (
-                              conferenceTriggerRefs.current[
-                                conference.id
-                              ]?.matches(":hover")
-                            ) {
-                              setHoveredConferenceId(conference.id);
-                            }
-
-                            hoverRestoreTimeoutRef.current = null;
-                          }, 180);
-                        }}
-                        className={`conference-trigger ${showConferenceDetails ? "conference-trigger--expanded" : "conference-trigger--collapsed"} ${showHoverCooldown ? "conference-trigger--hover-cooldown" : ""} ${showTriggerHover ? "conference-trigger--hovered -translate-y-px" : ""} flex h-full w-full items-center justify-center text-center outline-none`}
-                      >
-                        <ConferenceMetaColumn
-                          conference={conference}
-                          compact
-                          expanded={showConferenceDetails}
-                          hovered={showTriggerHover}
-                        />
-                      </button>
-                    </div>
-                    <div className="timeline-row border-b border-[var(--panel-border)] px-4">
-                      <div
-                        className="timeline-row-grid pointer-events-none absolute inset-0"
-                        data-testid={`timeline-row-grid-${conference.id}`}
-                      >
-                        {monthCells.map((monthCell, index) => (
-                          <div
-                            key={`${conference.id}-${monthCell.key}`}
-                            data-testid={`grid-month-cell-${conference.id}-${monthCell.key}`}
-                            className={`timeline-grid-month-cell absolute inset-y-0 ${index === 0 ? "border-l-transparent" : "border-l-[var(--grid-line)]"}`}
-                            style={{
-                              left: `${monthCell.left}%`,
-                              width: `${monthCell.width}%`,
-                            }}
-                          />
-                        ))}
-                      </div>
-                      {(() => {
-                        if (!timelineSpanMilestones) {
-                          return null;
-                        }
-
-                        const clippedPrimaryPath = clipTimelineSpan(
-                          getMilestoneInstant(
-                            timelineSpanMilestones.start,
-                            resolvedViewerTimeZone,
-                          ),
-                          getMilestoneInstant(
-                            timelineSpanMilestones.end,
-                            resolvedViewerTimeZone,
-                          ),
-                          renderWindow,
-                        );
-
-                        if (!clippedPrimaryPath) {
-                          return null;
-                        }
-
-                        const left = getPositionPercent(
-                          clippedPrimaryPath.start,
-                          visibleRange,
-                        );
-                        const right = getPositionPercent(
-                          clippedPrimaryPath.end,
-                          visibleRange,
-                        );
-
-                        if (right <= left) {
-                          return null;
-                        }
-
-                        return (
-                          <div
-                            data-testid={`primary-path-${conference.id}`}
-                            data-path-start={timelineSpanMilestones.start.type}
-                            data-path-end={timelineSpanMilestones.end.type}
-                            className="absolute top-[22px] h-[8px] rounded-full bg-[var(--path-track)]"
-                            style={{
-                              left: `${left}%`,
-                              width: `${Math.max(0.75, right - left)}%`,
-                            }}
-                          />
-                        );
-                      })()}
-                      {rangeSegments.map((segment) => {
-                        if (
-                          !renderedMilestoneTypes.has(segment.start.type) ||
-                          !renderedMilestoneTypes.has(segment.end.type)
-                        ) {
-                          return null;
-                        }
-
-                        const clippedSegment = clipTimelineSpan(
-                          getMilestoneInstant(segment.start, resolvedViewerTimeZone),
-                          getMilestoneInstant(segment.end, resolvedViewerTimeZone),
-                          renderWindow,
-                        );
-
-                        if (!clippedSegment) {
-                          return null;
-                        }
-
-                        const left = getPositionPercent(clippedSegment.start, visibleRange);
-                        const right = getPositionPercent(clippedSegment.end, visibleRange);
-
-                        return (
-                          <div
-                            data-testid={`range-${conference.id}-${segment.key}`}
-                            data-tone={segment.tone}
-                            key={`${conference.id}-${segment.key}`}
-                            className={`absolute h-[8px] rounded-full ${getToneClass(segment.tone, "range")} ${segment.top}`}
-                            style={{
-                              left: `${left}%`,
-                              width: `${Math.max(0, right - left)}%`,
-                            }}
-                          />
-                        );
-                      })}
-                      {renderedMilestones.map((milestone) => {
-                        const milestoneStart = getMilestoneInstant(
-                          milestone,
-                          resolvedViewerTimeZone,
-                        );
-
-                        if (
-                          !isWithinRenderWindow(milestoneStart, renderWindow) ||
-                          !isWithinVisibleRange(
-                            milestoneStart,
-                            visibleRange,
-                          )
-                        ) {
-                          return null;
-                        }
-
-                        const left = getPositionPercent(
-                          milestoneStart,
-                          visibleRange,
-                        );
-                        const tone = getMilestoneTone(milestone.type);
-                        const isPrimaryPath = primaryPathTypes.has(
-                          milestone.type,
-                        );
-                        const isHovered =
-                          hoveredMilestone?.conferenceId === conference.id &&
-                          hoveredMilestone.milestone.id === milestone.id;
-
-                        return (
-                          <button
-                            key={milestone.id}
-                            type="button"
-                            aria-label={milestone.label}
-                            data-primary-path={String(isPrimaryPath)}
-                            data-tone={tone}
-                            onMouseEnter={() =>
-                              setHoveredMilestone({
-                                conferenceId: conference.id,
-                                milestone,
-                              })
-                            }
-                            onMouseLeave={() => setHoveredMilestone(null)}
-                            onFocus={() =>
-                              setHoveredMilestone({
-                                conferenceId: conference.id,
-                                milestone,
-                              })
-                            }
-                            onBlur={() => setHoveredMilestone(null)}
-                            className="timeline-marker absolute top-[14px] z-10 h-6 w-6 -translate-x-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)]"
-                            style={{ left: `${left}%` }}
-                          >
-                            <span
-                              className={`absolute inset-[4px] rounded-full ${getToneClass(tone, "marker")}`}
-                            />
-                            {isHovered ? (
-                              <MilestoneTooltip
-                                conference={conference}
-                                milestone={milestone}
-                                left={left}
-                                now={now}
-                                viewerTimeZone={resolvedViewerTimeZone}
-                              />
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <ConferenceDetailRow
-                      conference={conference}
-                      expanded={showConferenceDetails}
-                    />
-                  </Fragment>
-                );
-              })}
+              {section.conferences.map((conference) => (
+                <TimelineConferenceRow
+                  key={conference.id}
+                  conference={conference}
+                  visibleRange={visibleRange}
+                />
+              ))}
             </Fragment>
           );
         })}
       </div>
       {todayVisible ? (
         <div
-          data-testid="today-label-overlay"
-          className="pointer-events-none absolute inset-x-0 top-0 z-20"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10"
+          style={{ left: "var(--timeline-meta-width)" }}
         >
-          <div className="relative ml-[180px] mr-0">
-            <div className="relative mx-4 h-0">
-              <span
-                data-testid="today-label"
-                className="timeline-today-label"
-                style={{ left: `${todayLeft}%` }}
-              >
-                <span>Today</span>
-                <span
-                  data-testid="today-date"
-                  className="timeline-today-date ml-2 pl-2"
-                >
-                  {todayDateLabel}
-                </span>
-              </span>
-            </div>
+          <div className="relative mx-4 h-full">
+            <div
+              data-testid="today-line"
+              className="absolute inset-y-0 w-px"
+              style={{
+                left: `${todayLeft}%`,
+                backgroundImage: `repeating-linear-gradient(to bottom, var(--accent-secondary) 0, var(--accent-secondary) 4px, transparent 4px, transparent 8px)`,
+                opacity: 0.5,
+              }}
+            />
+            <span
+              data-testid="today-label"
+              className="timeline-today-label"
+              style={{ left: `${todayLeft}%` }}
+            >
+              Today
+            </span>
           </div>
         </div>
       ) : null}
     </div>
   );
-}
+});

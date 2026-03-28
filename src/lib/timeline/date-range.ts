@@ -1,47 +1,25 @@
 import {
-  addMonthsInTimeZone,
-  resolveViewerTimeZone,
-  shiftDateByMonthsInTimeZone,
-} from "./milestone-time";
+  addMonths,
+  endOfMonth,
+  startOfMonth,
+  subMonths,
+} from "date-fns";
 
-export function getRelativeVisibleRange(
-  now: Date,
-  viewerTimeZone: string | undefined,
-  startMonths: number,
-  endMonths: number,
-) {
-  const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
+interface VisibleRange {
+  start: Date;
+  end: Date;
+}
 
+export function alignVisibleRangeToMonthBounds(range: VisibleRange) {
   return {
-    start: shiftDateByMonthsInTimeZone(now, startMonths, resolvedViewerTimeZone),
-    end: shiftDateByMonthsInTimeZone(now, endMonths, resolvedViewerTimeZone),
+    start: startOfMonth(range.start),
+    end: endOfMonth(range.end),
   };
 }
 
-export function getDefaultVisibleRange(
-  now: Date,
-  viewerTimeZone?: string,
-) {
-  return getRelativeVisibleRange(now, viewerTimeZone, -2, 4);
-}
-
-export function getPresetVisibleRange(
-  now: Date,
-  viewerTimeZone: string | undefined,
-  months: number,
-) {
-  const monthsBack = Math.max(1, Math.floor(months / 3));
-
-  return {
-    start: shiftDateByMonthsInTimeZone(
-      now,
-      -monthsBack,
-      resolveViewerTimeZone(viewerTimeZone),
-    ),
-    end: addMonthsInTimeZone(
-      now,
-      months - monthsBack,
-      resolveViewerTimeZone(viewerTimeZone),
-    ),
-  };
+export function getDefaultVisibleRange(now: Date) {
+  return alignVisibleRangeToMonthBounds({
+    start: subMonths(now, 2),
+    end: addMonths(now, 4),
+  });
 }

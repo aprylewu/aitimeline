@@ -1,29 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "./timeline-browser";
-
-function setViewportWidth(width: number) {
-  Object.defineProperty(window, "innerWidth", {
-    configurable: true,
-    value: width,
-    writable: true,
-  });
-}
-
-function setScrollPosition(scrollY: number) {
-  Object.defineProperty(window, "scrollY", {
-    configurable: true,
-    value: scrollY,
-    writable: true,
-  });
-}
-
-beforeEach(() => {
-  window.localStorage.clear();
-  setViewportWidth(1280);
-  setScrollPosition(0);
-});
 
 it("updates the visible rows when search and presets change", async () => {
   const user = userEvent.setup();
@@ -35,24 +13,39 @@ it("updates the visible rows when search and presets change", async () => {
     />,
   );
 
-  expect(screen.getByRole("button", { name: "AI" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "AI / ML" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "6M" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // Milestone filters are behind a dedicated "Milestones" popover.
+  await user.click(screen.getByRole("button", { name: /milestones/i }));
+  const milestoneDialog = screen.getByRole("dialog", {
+    name: /milestone filter controls/i,
+  });
   expect(
     within(
       screen.getByRole("group", { name: /milestone filters/i }),
     ).getByRole("button", { name: /notification/i }),
   ).toBeInTheDocument();
+  expect(milestoneDialog.parentElement).toBe(document.body);
+
+  await user.click(screen.getByRole("button", { name: "3M" }));
+  expect(screen.getByRole("button", { name: "3M" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 
   await user.type(screen.getByPlaceholderText(/search conferences/i), "icml");
 
-  expect(screen.getAllByText(/icml/i).length).toBeGreaterThan(0);
+  expect(screen.getByText(/icml/i)).toBeInTheDocument();
   expect(screen.queryByText(/neurips/i)).not.toBeInTheDocument();
 });
 
-it("reopens the mobile filter controls from the compact bar", async () => {
+it("closes the milestone popover on escape and restores button focus", async () => {
   const user = userEvent.setup();
 
-  setViewportWidth(390);
-
   render(
     <TimelineBrowser
       conferences={conferences}
@@ -60,26 +53,27 @@ it("reopens the mobile filter controls from the compact bar", async () => {
     />,
   );
 
-  setScrollPosition(180);
-  fireEvent.scroll(window);
+  const filtersButton = screen.getByRole("button", { name: /milestones/i });
+
+  await user.click(filtersButton);
+
+  expect(filtersButton).toHaveAttribute("aria-expanded", "true");
+  expect(
+    screen.getByRole("group", { name: /milestone filters/i }),
+  ).toBeInTheDocument();
+
+  await user.keyboard("{Escape}");
 
   expect(
-    screen.queryByRole("group", { name: /category filters/i }),
+    screen.queryByRole("group", { name: /milestone filters/i }),
   ).not.toBeInTheDocument();
-
-  await user.click(screen.getByRole("button", { name: /filters/i }));
-
-  expect(
-    screen.getByRole("group", { name: /category filters/i }),
-  ).toBeInTheDocument();
-  expect(
-    within(
-      screen.getByRole("group", { name: /milestone filters/i }),
-    ).getByRole("button", { name: /notification/i }),
-  ).toBeInTheDocument();
+  expect(filtersButton).toHaveAttribute("aria-expanded", "false");
+  expect(filtersButton).toHaveFocus();
 });
 
-it("keeps the desktop theme toggle pinned in the rail while expanded", () => {
+it("shows inline clear and reset actions for active search filters", async () => {
+  const user = userEvent.setup();
+
   render(
     <TimelineBrowser
       conferences={conferences}
@@ -87,12 +81,22 @@ it("keeps the desktop theme toggle pinned in the rail while expanded", () => {
     />,
   );
 
-  const rail = screen.getByTestId("timeline-menu-rail");
+  const searchInput = screen.getByRole("textbox", {
+    name: /search conferences/i,
+  });
 
+  await user.type(searchInput, "icml");
+
+  expect(screen.getByRole("button", { name: /clear search/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /reset filters/i })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /clear search/i }));
+
+  expect(searchInput).toHaveValue("");
   expect(
-    within(rail).getByRole("button", { name: /dark mode/i }),
-  ).toBeInTheDocument();
+    screen.queryByRole("button", { name: /clear search/i }),
+  ).not.toBeInTheDocument();
   expect(
-    screen.queryByTestId("timeline-menu-drawer-theme-toggle"),
+    screen.queryByRole("button", { name: /reset filters/i }),
   ).not.toBeInTheDocument();
 });

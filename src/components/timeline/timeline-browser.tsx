@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ControlsBar } from "./controls-bar";
+import { useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { addMonths, format, parseISO, subMonths } from "date-fns";
+import { ControlsBar, type RangePreset } from "./controls-bar";
 import { TimelineGrid } from "./timeline-grid";
-import { getDefaultVisibleRange, getPresetVisibleRange } from "@/lib/timeline/date-range";
-import { getMilestoneRange, resolveViewerTimeZone } from "@/lib/timeline/milestone-time";
+import {
+  alignVisibleRangeToMonthBounds,
+  getDefaultVisibleRange,
+} from "@/lib/timeline/date-range";
 import { organizeConferenceSections } from "@/lib/timeline/sections";
 import type {
   Conference,
@@ -15,20 +19,15 @@ import type {
 interface TimelineBrowserProps {
   conferences: Conference[];
   now: Date;
-  viewerTimeZone?: string;
 }
 
-const DESKTOP_BREAKPOINT = 1024;
-const MOBILE_MENU_COMPACT_SCROLL_Y = 96;
-const MOBILE_MENU_RESET_SCROLL_Y = 24;
-const DESKTOP_MENU_STORAGE_KEY = "timeline.desktopMenuCollapsed";
-const THEME_COLORS = {
-  dark: "#070b14",
-  light: "#f6f3ed",
-} as const;
+interface SurfaceDragState {
+  pointerId: number;
+  startScrollLeft: number;
+  startX: number;
+}
 
 const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
-  "abstract",
   "fullPaper",
   "rebuttalStart",
   "rebuttalEnd",
@@ -39,58 +38,31 @@ const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
 ];
 
 const LEGEND_ITEMS = [
-  {
-    key: "abstract",
-    label: "Abstract",
-    markerClass: "bg-[var(--timeline-neutral)]",
-    type: "dot" as const,
-  },
-  {
-    key: "fullPaper",
-    label: "Full paper",
-    markerClass: "bg-[#16a34a]",
-    type: "dot" as const,
-  },
-  {
-    key: "rebuttal",
-    label: "Rebuttal",
-    markerClass: "bg-[var(--timeline-rebuttal)]",
-    type: "dot" as const,
-  },
-  {
-    key: "notification",
-    label: "Final decision",
-    markerClass: "bg-[#dc2626]",
-    type: "dot" as const,
-  },
-  {
-    key: "conference",
-    label: "Conference",
-    markerClass: "bg-[var(--timeline-conference)]",
-    type: "dot" as const,
-  },
-  {
-    key: "today",
-    label: "Today",
-    markerClass: "bg-[var(--accent-secondary)]",
-    type: "line" as const,
-  },
+  { label: "Submission", variable: "--timeline-full-paper" },
+  { label: "Rebuttal", variable: "--timeline-rebuttal" },
+  { label: "Decision", variable: "--timeline-notification" },
+  { label: "Conference", variable: "--timeline-conference" },
 ] as const;
+const PRESET_OPTIONS = ["3M", "6M", "12M"] as const;
 
-function getIsMobileViewport() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.innerWidth < DESKTOP_BREAKPOINT;
+function rangesMatch(
+  left: { start: Date; end: Date },
+  right: { start: Date; end: Date },
+) {
+  return (
+    left.start.getTime() === right.start.getTime() &&
+    left.end.getTime() === right.end.getTime()
+  );
 }
 
-function getStoredDesktopMenuCollapsed() {
-  if (typeof window === "undefined") {
-    return false;
-  }
+function getPresetRange(now: Date, preset: Exclude<RangePreset, "All">) {
+  const months = Number.parseInt(preset, 10);
+  const monthsBack = Math.max(1, Math.floor(months / 3));
 
-  return window.localStorage.getItem(DESKTOP_MENU_STORAGE_KEY) === "true";
+  return alignVisibleRangeToMonthBounds({
+    start: subMonths(now, monthsBack),
+    end: addMonths(now, months - monthsBack),
+  });
 }
 
 function toggleSetValue<T>(current: Set<T>, value: T) {
@@ -105,525 +77,198 @@ function toggleSetValue<T>(current: Set<T>, value: T) {
   return next;
 }
 
-function getAllRange(
-  conferences: Conference[],
-  viewerTimeZone?: string,
-) {
-  const points = conferences.flatMap((conference) =>
-    conference.milestones.flatMap((milestone) => [
-      getMilestoneRange(milestone, viewerTimeZone).start,
-      getMilestoneRange(milestone, viewerTimeZone).end,
-    ]),
-  );
+function getAllRange(conferences: Conference[]) {
+  const points = conferences
+    .flatMap((conference) =>
+      conference.milestones.flatMap((milestone) => [
+        parseISO(milestone.dateStart),
+        parseISO(milestone.dateEnd ?? milestone.dateStart),
+      ]),
+    )
+    .filter((point) => Number.isFinite(point.getTime()));
 
-  return {
+  if (points.length === 0) {
+    return null;
+  }
+
+  return alignVisibleRangeToMonthBounds({
     start: new Date(Math.min(...points.map((point) => point.getTime()))),
     end: new Date(Math.max(...points.map((point) => point.getTime()))),
-  };
+  });
 }
 
-function clampFocusRangeToTimeline(
-  focusRange: { start: Date; end: Date },
-  timelineRange: { start: Date; end: Date },
-) {
-  const focusDuration = focusRange.end.getTime() - focusRange.start.getTime();
-  const timelineDuration =
-    timelineRange.end.getTime() - timelineRange.start.getTime();
-
-  if (focusDuration >= timelineDuration) {
-    return timelineRange;
-  }
-
-  if (focusRange.start.getTime() < timelineRange.start.getTime()) {
-    return {
-      start: timelineRange.start,
-      end: new Date(timelineRange.start.getTime() + focusDuration),
-    };
-  }
-
-  if (focusRange.end.getTime() > timelineRange.end.getTime()) {
-    return {
-      start: new Date(timelineRange.end.getTime() - focusDuration),
-      end: timelineRange.end,
-    };
-  }
-
-  return focusRange;
-}
-
-function getTimelineContentWidth(args: {
-  focusRange: { start: Date; end: Date };
-  timelineRange: { start: Date; end: Date };
-  viewportWidth: number;
-}) {
-  const { focusRange, timelineRange, viewportWidth } = args;
-
-  if (viewportWidth <= 0) {
-    return 980;
-  }
-
-  const timelineDuration =
-    timelineRange.end.getTime() - timelineRange.start.getTime();
-  const focusDuration = Math.max(
-    1,
-    focusRange.end.getTime() - focusRange.start.getTime(),
-  );
-
-  if (timelineDuration <= 0 || focusDuration >= timelineDuration) {
-    return Math.max(980, viewportWidth);
-  }
-
-  return Math.max(
-    980,
-    Math.ceil(viewportWidth * (timelineDuration / focusDuration)),
-  );
-}
-
-function getFocusScrollLeft(args: {
-  contentWidth: number;
-  focusRange: { start: Date; end: Date };
-  timelineRange: { start: Date; end: Date };
-  viewportWidth: number;
-}) {
-  const { contentWidth, focusRange, timelineRange, viewportWidth } = args;
-
-  if (contentWidth <= viewportWidth) {
-    return 0;
-  }
-
-  const timelineDuration =
-    timelineRange.end.getTime() - timelineRange.start.getTime();
-
-  if (timelineDuration <= 0) {
-    return 0;
-  }
-
-  const offset = Math.max(
-    0,
-    focusRange.start.getTime() - timelineRange.start.getTime(),
-  );
-  const rawScrollLeft = (offset / timelineDuration) * contentWidth;
-
-  return Math.min(contentWidth - viewportWidth, rawScrollLeft);
-}
-
-function TimelineLegend() {
-  return (
-    <div
-      data-testid="timeline-legend"
-      className="mb-4 flex flex-wrap items-center gap-2.5 rounded-[22px] border border-[var(--panel-border)] bg-[var(--surface-bg)] px-3 py-2.5"
-    >
-      <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-        Legend
-      </span>
-      {LEGEND_ITEMS.map((item) => (
-        <span
-          key={item.key}
-          className="inline-flex items-center gap-2 rounded-full bg-[var(--chip-bg)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]"
-        >
-          <span
-            aria-hidden="true"
-            className={
-              item.type === "line"
-                ? `block h-3 w-[3px] rounded-full ${item.markerClass}`
-                : `block h-2.5 w-2.5 rounded-full ${item.markerClass}`
-            }
-          />
-          {item.label}
-        </span>
-      ))}
-      <span className="text-[11px] text-[var(--text-muted)]">
-        Dots are milestones; soft bars mark ranges.
-      </span>
-    </div>
-  );
-}
-
-export function TimelineBrowser({
-  conferences,
-  now,
-  viewerTimeZone,
-}: TimelineBrowserProps) {
-  const initialViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
+export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
-  const [timelineNow, setTimelineNow] = useState(now);
-  const [resolvedViewerTimeZone, setResolvedViewerTimeZone] = useState(
-    initialViewerTimeZone,
-  );
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [isMobileMenuCompact, setIsMobileMenuCompact] = useState(false);
-  const [isDesktopMenuCollapsed, setIsDesktopMenuCollapsed] = useState(false);
-  const [hasRestoredDesktopMenuPreference, setHasRestoredDesktopMenuPreference] =
-    useState(false);
+  const [isDraggingSurface, setIsDraggingSurface] = useState(false);
   const [categories, setCategories] = useState<Set<ConferenceCategory>>(
     () => new Set(),
   );
-  const [manualFocusRange, setManualFocusRange] = useState<{
-    end: Date;
-    start: Date;
-  } | null>(null);
-  const timelineSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const focusScrollFrameRef = useRef<number | null>(null);
-  const focusScrollTimeoutRef = useRef<number | null>(null);
-  const desktopToggleFocusTimeoutRef = useRef<number | null>(null);
-  const [timelineSurfaceWidth, setTimelineSurfaceWidth] = useState(0);
-  const [timelineContentWidthBasis, setTimelineContentWidthBasis] = useState(0);
-  const timelineRange = useMemo(
-    () => getAllRange(conferences, resolvedViewerTimeZone),
-    [conferences, resolvedViewerTimeZone],
-  );
-  const focusRange = useMemo(
-    () =>
-      manualFocusRange ??
-      getDefaultVisibleRange(timelineNow, resolvedViewerTimeZone),
-    [manualFocusRange, resolvedViewerTimeZone, timelineNow],
-  );
-  const clampedFocusRange = useMemo(
-    () => clampFocusRangeToTimeline(focusRange, timelineRange),
-    [focusRange, timelineRange],
-  );
-  const timelineContentWidth = useMemo(
-    () =>
-      getTimelineContentWidth({
-        focusRange: clampedFocusRange,
-        timelineRange,
-        viewportWidth:
-          timelineContentWidthBasis > 0
-            ? timelineContentWidthBasis
-            : timelineSurfaceWidth,
-      }),
-    [
-      clampedFocusRange,
-      timelineContentWidthBasis,
-      timelineRange,
-      timelineSurfaceWidth,
-    ],
+  const [visibleRange, setVisibleRange] = useState(() =>
+    getDefaultVisibleRange(now),
   );
   const [visibleMilestoneTypes, setVisibleMilestoneTypes] = useState(
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
   );
-
-  const availableCategories = Array.from(
-    new Set(conferences.map((conference) => conference.category)),
-  ).sort();
-
-  const availableMilestoneTypes = DEFAULT_VISIBLE_MILESTONE_TYPES.filter((type) =>
-    conferences.some((conference) =>
-      conference.milestones.some((milestone) => milestone.type === type),
-    ),
+  const surfaceDragStateRef = useRef<SurfaceDragState | null>(null);
+  const defaultVisibleRange = useMemo(() => getDefaultVisibleRange(now), [now]);
+  const presetRanges = useMemo(
+    () =>
+      Object.fromEntries(
+        PRESET_OPTIONS.map((preset) => [preset, getPresetRange(now, preset)]),
+      ) as Record<(typeof PRESET_OPTIONS)[number], { start: Date; end: Date }>,
+    [now],
+  );
+  const allRange = useMemo(() => getAllRange(conferences), [conferences]);
+  const availableCategories = useMemo(
+    () =>
+      Array.from(
+        new Set(conferences.map((conference) => conference.category)),
+      ).sort(),
+    [conferences],
+  );
+  const availableMilestoneTypes = useMemo(
+    () =>
+      DEFAULT_VISIBLE_MILESTONE_TYPES.filter((type) =>
+        conferences.some((conference) =>
+          conference.milestones.some((milestone) => milestone.type === type),
+        ),
+      ),
+    [conferences],
   );
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
+  function handlePresetSelect(preset: "3M" | "6M" | "12M" | "All") {
+    if (preset === "All") {
+      setVisibleRange(allRange ?? defaultVisibleRange);
+      return;
     }
 
-    const syncFrame = window.requestAnimationFrame(() => {
-      setTimelineNow(new Date());
-      setResolvedViewerTimeZone(resolveViewerTimeZone());
-    });
+    setVisibleRange(presetRanges[preset]);
+  }
 
-    return () => {
-      window.cancelAnimationFrame(syncFrame);
-    };
-  }, []);
+  function clearAllFilters() {
+    setQuery("");
+    setCategories(new Set());
+    setVisibleMilestoneTypes(new Set(DEFAULT_VISIBLE_MILESTONE_TYPES));
+    setVisibleRange(defaultVisibleRange);
+  }
 
-  useEffect(() => {
-    return () => {
-      if (
-        typeof window !== "undefined" &&
-        desktopToggleFocusTimeoutRef.current !== null
-      ) {
-        window.clearTimeout(desktopToggleFocusTimeoutRef.current);
-        desktopToggleFocusTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
-
-    const restorePreferenceFrame = window.requestAnimationFrame(() => {
-      setIsDesktopMenuCollapsed(getStoredDesktopMenuCollapsed());
-      setHasRestoredDesktopMenuPreference(true);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(restorePreferenceFrame);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
-
-    function handleResize() {
-      setTimelineContentWidthBasis(0);
-
-      const mobile = getIsMobileViewport();
-
-      setIsMobileViewport(mobile);
-
-      if (!mobile) {
-        setIsMobileMenuCompact(false);
-        return;
-      }
-
-      if (window.scrollY <= MOBILE_MENU_RESET_SCROLL_Y) {
-        setIsMobileMenuCompact(false);
-        return;
-      }
-
-      setIsMobileMenuCompact(window.scrollY > MOBILE_MENU_COMPACT_SCROLL_Y);
-    }
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isMobileViewport) {
-      return undefined;
-    }
-
-    function handleScroll() {
-      if (window.scrollY <= MOBILE_MENU_RESET_SCROLL_Y) {
-        setIsMobileMenuCompact(false);
-        return;
-      }
-
-      if (window.scrollY > MOBILE_MENU_COMPACT_SCROLL_Y) {
-        setIsMobileMenuCompact(true);
-      }
-    }
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [isMobileViewport]);
-
-  useEffect(() => {
+  function endSurfaceDrag(
+    currentTarget: HTMLDivElement,
+    pointerId: number,
+  ) {
     if (
-      typeof window === "undefined" ||
-      !hasRestoredDesktopMenuPreference
+      !surfaceDragStateRef.current ||
+      surfaceDragStateRef.current.pointerId !== pointerId
     ) {
       return;
     }
 
-    window.localStorage.setItem(
-      DESKTOP_MENU_STORAGE_KEY,
-      String(isDesktopMenuCollapsed),
-    );
-  }, [hasRestoredDesktopMenuPreference, isDesktopMenuCollapsed]);
+    surfaceDragStateRef.current = null;
+    setIsDraggingSurface(false);
 
-  useEffect(() => {
-    const surface = timelineSurfaceRef.current;
-
-    if (!surface) {
-      return undefined;
+    try {
+      currentTarget.releasePointerCapture?.(pointerId);
+    } catch {
+      // Ignore browsers/test environments that do not track pointer capture.
     }
-
-    const updateWidth = () => {
-      setTimelineSurfaceWidth(surface.clientWidth);
-      setTimelineContentWidthBasis((current) =>
-        current > 0 ? current : surface.clientWidth,
-      );
-    };
-
-    updateWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      return undefined;
-    }
-
-    const resizeObserver = new ResizeObserver(() => {
-      updateWidth();
-    });
-
-    resizeObserver.observe(surface);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const surface = timelineSurfaceRef.current;
-
-    if (!surface) {
-      return;
-    }
-
-    setTimelineContentWidthBasis(surface.clientWidth);
-  }, [clampedFocusRange.end, clampedFocusRange.start]);
-
-  useLayoutEffect(() => {
-    const surface = timelineSurfaceRef.current;
-
-    if (!surface || timelineSurfaceWidth <= 0) {
-      return;
-    }
-
-    if (typeof window === "undefined") {
-      surface.scrollLeft = getFocusScrollLeft({
-        contentWidth: timelineContentWidth,
-        focusRange: clampedFocusRange,
-        timelineRange,
-        viewportWidth: timelineSurfaceWidth,
-      });
-      return;
-    }
-
-    if (focusScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(focusScrollFrameRef.current);
-    }
-
-    if (focusScrollTimeoutRef.current !== null) {
-      window.clearTimeout(focusScrollTimeoutRef.current);
-    }
-
-    focusScrollFrameRef.current = window.requestAnimationFrame(() => {
-      const targetScrollLeft = getFocusScrollLeft({
-        contentWidth: timelineContentWidth,
-        focusRange: clampedFocusRange,
-        timelineRange,
-        viewportWidth: timelineSurfaceWidth,
-      });
-
-      surface.scrollLeft = targetScrollLeft;
-      focusScrollFrameRef.current = null;
-
-      // Sidebar collapse/expand animates the grid width over 200ms.
-      // Re-apply the focus position after the transition settles so the
-      // browser does not snap the scroll container back to the far left.
-      focusScrollTimeoutRef.current = window.setTimeout(() => {
-        surface.scrollLeft = targetScrollLeft;
-        focusScrollTimeoutRef.current = null;
-      }, 240);
-    });
-
-    return () => {
-      if (focusScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(focusScrollFrameRef.current);
-        focusScrollFrameRef.current = null;
-      }
-
-      if (focusScrollTimeoutRef.current !== null) {
-        window.clearTimeout(focusScrollTimeoutRef.current);
-        focusScrollTimeoutRef.current = null;
-      }
-    };
-  }, [
-    clampedFocusRange,
-    timelineContentWidth,
-    timelineRange,
-    timelineSurfaceWidth,
-  ]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    document.documentElement.setAttribute("data-theme", theme);
-    document.body.setAttribute("data-theme", theme);
-
-    let themeColorMeta = document.querySelector("meta[name='theme-color']");
-
-    if (!themeColorMeta) {
-      themeColorMeta = document.createElement("meta");
-      themeColorMeta.setAttribute("name", "theme-color");
-      document.head.appendChild(themeColorMeta);
-    }
-
-    themeColorMeta.setAttribute("content", THEME_COLORS[theme]);
-  }, [theme]);
-
-  function handlePresetSelect(preset: "3M" | "6M" | "12M" | "All") {
-    if (preset === "All") {
-      setManualFocusRange(getAllRange(conferences, resolvedViewerTimeZone));
-      return;
-    }
-
-    const months = Number.parseInt(preset, 10);
-    setManualFocusRange(
-      getPresetVisibleRange(timelineNow, resolvedViewerTimeZone, months),
-    );
   }
 
-  function restoreFocusScrollFromLiveLayout() {
-    if (typeof window === "undefined") {
+  function handleSurfacePointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
       return;
     }
 
-    const surface = timelineSurfaceRef.current;
+    const target = event.target as HTMLElement;
 
-    if (!surface) {
+    if (target.closest("button, input, a")) {
       return;
     }
 
-    const viewportWidth = surface.clientWidth;
-    const contentWidth = surface.scrollWidth;
-
-    if (viewportWidth <= 0 || contentWidth <= viewportWidth) {
+    if (event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) {
       return;
     }
 
-    surface.scrollLeft = getFocusScrollLeft({
-      contentWidth,
-      focusRange: clampedFocusRange,
-      timelineRange,
-      viewportWidth,
-    });
+    surfaceDragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startScrollLeft: event.currentTarget.scrollLeft,
+    };
+    setIsDraggingSurface(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
   }
 
-  function handleDesktopMenuToggle() {
-    const preservedScrollLeft = timelineSurfaceRef.current?.scrollLeft ?? 0;
-
-    setIsDesktopMenuCollapsed((current) => !current);
-
-    if (typeof window === "undefined") {
+  function handleSurfacePointerMove(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (
+      !surfaceDragStateRef.current ||
+      surfaceDragStateRef.current.pointerId !== event.pointerId
+    ) {
       return;
     }
 
-    if (desktopToggleFocusTimeoutRef.current !== null) {
-      window.clearTimeout(desktopToggleFocusTimeoutRef.current);
-    }
-
-    desktopToggleFocusTimeoutRef.current = window.setTimeout(() => {
-      const surface = timelineSurfaceRef.current;
-
-      if (surface) {
-        surface.scrollLeft = preservedScrollLeft;
-      } else {
-        restoreFocusScrollFromLiveLayout();
-      }
-
-      desktopToggleFocusTimeoutRef.current = null;
-    }, 260);
+    const deltaX = event.clientX - surfaceDragStateRef.current.startX;
+    event.currentTarget.scrollLeft =
+      surfaceDragStateRef.current.startScrollLeft - deltaX;
+    event.preventDefault();
   }
 
-  const sections = organizeConferenceSections({
-    conferences,
-    query,
-    categories,
-    visibleMilestoneTypes,
-    visibleRange: clampedFocusRange,
-    viewerTimeZone: resolvedViewerTimeZone,
-    now: timelineNow,
-  });
+  const sections = useMemo(
+    () =>
+      organizeConferenceSections({
+        conferences,
+        query,
+        categories,
+        visibleMilestoneTypes,
+        visibleRange,
+        now,
+      }),
+    [categories, conferences, now, query, visibleMilestoneTypes, visibleRange],
+  );
+  const timelineSections = useMemo(
+    () => [
+      { id: "active", label: "Active", conferences: sections.active },
+      { id: "past", label: "Past", conferences: sections.past },
+    ],
+    [sections],
+  );
   const visibleConferenceCount = sections.active.length + sections.past.length;
+  const hasConferenceData = useMemo(
+    () => conferences.some((conference) => conference.milestones.length > 0),
+    [conferences],
+  );
+  const milestoneFilterCount = useMemo(
+    () =>
+      availableMilestoneTypes.filter((type) => !visibleMilestoneTypes.has(type))
+        .length,
+    [availableMilestoneTypes, visibleMilestoneTypes],
+  );
+  const hasMilestoneFilter = milestoneFilterCount > 0;
+  const hasVisibleRangeFilter =
+    visibleRange.start.getTime() !== defaultVisibleRange.start.getTime() ||
+    visibleRange.end.getTime() !== defaultVisibleRange.end.getTime();
+  const trimmedQuery = query.trim();
+  const activeFilterCount =
+    milestoneFilterCount +
+    categories.size +
+    (trimmedQuery.length > 0 ? 1 : 0) +
+    (hasVisibleRangeFilter ? 1 : 0);
+  const hasActiveFilters =
+    trimmedQuery.length > 0 ||
+    categories.size > 0 ||
+    hasMilestoneFilter ||
+    hasVisibleRangeFilter;
+  const activePreset = useMemo(
+    () =>
+      PRESET_OPTIONS.find((preset) =>
+        rangesMatch(visibleRange, presetRanges[preset]),
+      ) ?? (allRange && rangesMatch(visibleRange, allRange) ? "All" : null),
+    [allRange, presetRanges, visibleRange],
+  );
 
   return (
     <main
@@ -631,80 +276,112 @@ export function TimelineBrowser({
       data-theme={theme}
       className="timeline-browser min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)]"
     >
-      <div
-        className={`relative flex flex-col lg:grid lg:min-h-screen ${
-          isDesktopMenuCollapsed
-            ? "lg:[grid-template-columns:78px_minmax(0,1fr)]"
-            : "lg:[grid-template-columns:336px_minmax(0,1fr)]"
-        }`}
-      >
-        <ControlsBar
-          query={query}
-          onQueryChange={setQuery}
-          availableCategories={availableCategories}
-          categories={categories}
-          onCategoryToggle={(value) =>
-            setCategories((current) => toggleSetValue(current, value))
-          }
-          availableMilestoneTypes={availableMilestoneTypes}
-          visibleMilestoneTypes={visibleMilestoneTypes}
-          onMilestoneToggle={(value) =>
-            setVisibleMilestoneTypes((current) =>
-              toggleSetValue(current, value),
-            )
-          }
-          onPresetSelect={handlePresetSelect}
-          theme={theme}
-          onThemeToggle={() =>
-            setTheme((current) => (current === "light" ? "dark" : "light"))
-          }
-          isMobileViewport={isMobileViewport}
-          isMobileCompact={isMobileMenuCompact}
-          onMobileMenuExpand={() => setIsMobileMenuCompact(false)}
-          isDesktopCollapsed={isDesktopMenuCollapsed}
-          onDesktopMenuToggle={handleDesktopMenuToggle}
-        />
-
-        <section className="min-w-0">
-          <div className="mx-auto max-w-[1480px] px-4 py-4 md:px-6 md:py-6 xl:px-8">
-            <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                Focus on the submission to decision chain
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-                2026 Conference Timeline
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">
-                Shared gantt view for submission, rebuttal visibility, and final
-                decisions across active venues.
-              </p>
-            </div>
-            <TimelineLegend />
+      <ControlsBar
+        query={query}
+        onQueryChange={setQuery}
+        activePreset={activePreset}
+        activeFilterCount={activeFilterCount}
+        availableCategories={availableCategories}
+        categories={categories}
+        onCategoryToggle={(value) =>
+          setCategories((current) => toggleSetValue(current, value))
+        }
+        availableMilestoneTypes={availableMilestoneTypes}
+        visibleMilestoneTypes={visibleMilestoneTypes}
+        onMilestoneToggle={(value) =>
+          setVisibleMilestoneTypes((current) => toggleSetValue(current, value))
+        }
+        onPresetSelect={handlePresetSelect}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearAllFilters}
+        theme={theme}
+        onThemeToggle={() =>
+          setTheme((current) => (current === "light" ? "dark" : "light"))
+        }
+      />
+      <section className="mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+        <div className="mb-5">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+            {visibleConferenceCount} venue{visibleConferenceCount !== 1 ? "s" : ""}
+            {" · "}
+            {format(visibleRange.start, "MMM yyyy")}
+            {" – "}
+            {format(visibleRange.end, "MMM yyyy")}
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.02em] md:text-3xl">
+            Conference Timeline
+          </h1>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--text-muted)]">
+            Track submission windows, rebuttals, decisions, and event dates in
+            one continuous view.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
             <div
-              ref={timelineSurfaceRef}
-              data-testid="timeline-surface"
-              className="timeline-shell overflow-x-auto rounded-[28px] border border-[var(--panel-border)]"
+              data-testid="timeline-legend"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]"
             >
-              <TimelineGrid
-                sections={[
-                  { id: "active", label: "Active", conferences: sections.active },
-                  { id: "past", label: "Past", conferences: sections.past },
-                ]}
-                visibleMilestoneTypes={visibleMilestoneTypes}
-                visibleRange={timelineRange}
-                now={timelineNow}
-                viewerTimeZone={resolvedViewerTimeZone}
-                width={timelineContentWidth}
-              />
+              {LEGEND_ITEMS.map((item) => (
+                <span key={item.label} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: `var(${item.variable})` }}
+                  />
+                  {item.label}
+                </span>
+              ))}
             </div>
-            {visibleConferenceCount === 0 ? (
-              <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                No conferences match the current filters.
-              </div>
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+              Drag the surface to scan dense stretches.
+            </p>
+          </div>
+        </div>
+        <div
+          data-testid="timeline-surface"
+          role="region"
+          aria-label="Conference timeline"
+          onPointerDown={handleSurfacePointerDown}
+          onPointerMove={handleSurfacePointerMove}
+          onPointerUp={(event) =>
+            endSurfaceDrag(event.currentTarget, event.pointerId)
+          }
+          onPointerCancel={(event) =>
+            endSurfaceDrag(event.currentTarget, event.pointerId)
+          }
+          className={`timeline-shell timeline-shell-draggable overflow-x-auto rounded-xl border border-[var(--panel-border)] ${
+            isDraggingSurface ? "timeline-shell-dragging" : ""
+          }`}
+        >
+          <TimelineGrid sections={timelineSections} visibleRange={visibleRange} now={now} />
+        </div>
+        {visibleConferenceCount === 0 ? (
+          <div className="mt-6 flex flex-col items-center py-12">
+            <div className="mb-4 flex flex-col items-center gap-1.5 text-[var(--text-muted)] opacity-30">
+              <div className="h-px w-32 bg-current" />
+              <div className="h-px w-24 bg-current" />
+              <div className="h-px w-16 bg-current" />
+            </div>
+            <p className="text-center text-sm text-[var(--text-muted)]">
+              {hasConferenceData
+                ? "No conferences match the current filters."
+                : "No conference data is available right now."}
+            </p>
+            {!hasConferenceData ? (
+              <p className="mt-2 max-w-sm text-center text-xs leading-5 text-[var(--text-muted)]">
+                Try again later or refresh after the data sources recover.
+              </p>
+            ) : null}
+            {hasConferenceData && hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="timeline-control mt-3 cursor-pointer rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)]"
+              >
+                Clear filters
+              </button>
             ) : null}
           </div>
-        </section>
-      </div>
+        ) : null}
+      </section>
     </main>
   );
 }

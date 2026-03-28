@@ -1,14 +1,23 @@
-import { vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import Home from "./page";
+import { vi, it, expect } from "vitest";
 
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers(),
+vi.mock("@/lib/data/get-conferences", () => ({
+  getConferences: vi.fn().mockResolvedValue([]),
 }));
 
-it("renders the conference timeline heading", async () => {
-  render(await Home());
+vi.mock("@/components/timeline/timeline-browser", () => ({
+  TimelineBrowser: () => (
+    <div role="main" aria-label="conference timeline">
+      Timeline
+    </div>
+  ),
+}));
+
+it("renders the conference timeline", async () => {
+  const Home = (await import("./page")).default;
+  const jsx = await Home();
+  render(jsx);
   expect(
-    screen.getByRole("heading", { name: /conference timeline/i }),
+    screen.getByRole("main", { name: /conference timeline/i }),
   ).toBeInTheDocument();
 });

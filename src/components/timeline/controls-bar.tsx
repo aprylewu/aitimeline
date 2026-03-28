@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   ConferenceCategory,
   MilestoneType,
@@ -6,6 +8,8 @@ import type {
 interface ControlsBarProps {
   query: string;
   onQueryChange: (value: string) => void;
+  activePreset: RangePreset | null;
+  activeFilterCount: number;
   availableCategories: ConferenceCategory[];
   categories: Set<ConferenceCategory>;
   onCategoryToggle: (value: ConferenceCategory) => void;
@@ -13,16 +17,28 @@ interface ControlsBarProps {
   visibleMilestoneTypes: Set<MilestoneType>;
   onMilestoneToggle: (value: MilestoneType) => void;
   onPresetSelect: (preset: "3M" | "6M" | "12M" | "All") => void;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
   theme: "light" | "dark";
   onThemeToggle: () => void;
-  isMobileViewport: boolean;
-  isMobileCompact: boolean;
-  onMobileMenuExpand: () => void;
-  isDesktopCollapsed: boolean;
-  onDesktopMenuToggle: () => void;
 }
 
-const PRESETS = ["3M", "6M", "12M", "All"] as const;
+export const PRESETS = ["3M", "6M", "12M", "All"] as const;
+export type RangePreset = (typeof PRESETS)[number];
+
+const CATEGORY_LABELS: Record<ConferenceCategory, string> = {
+  AI: "AI / ML",
+  CG: "Graphics",
+  CT: "Theory",
+  DB: "Databases",
+  DS: "Data Mining",
+  HI: "HCI",
+  MX: "Vision",
+  NW: "Networks",
+  SC: "Security",
+  SE: "Software",
+};
+
 const MILESTONE_LABELS: Record<MilestoneType, string> = {
   abstract: "Abstract",
   fullPaper: "Full paper",
@@ -36,115 +52,64 @@ const MILESTONE_LABELS: Record<MilestoneType, string> = {
   workshop: "Workshop",
 };
 
-function MenuIcon() {
+function SunIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth="1.7"
-    >
-      <path d="M4 5.5h12" />
-      <path d="M4 10h12" />
-      <path d="M4 14.5h12" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="8" cy="8" r="3" />
+      <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.17 3.17l1.06 1.06M11.77 11.77l1.06 1.06M3.17 12.83l1.06-1.06M11.77 4.23l1.06-1.06" />
     </svg>
   );
 }
 
-function CollapseIcon() {
+function MoonIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.7"
-    >
-      <path d="M12.5 4.5 7 10l5.5 5.5" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M13.5 8.5a5.5 5.5 0 1 1-7-7 4.5 4.5 0 0 0 7 7z" />
     </svg>
   );
 }
 
-function ThemeIcon({ theme }: { theme: "light" | "dark" }) {
-  if (theme === "light") {
-    return (
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 20 20"
-        className="h-4.5 w-4.5"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      >
-        <path d="M10 2.5v2" />
-        <path d="M10 15.5v2" />
-        <path d="M2.5 10h2" />
-        <path d="M15.5 10h2" />
-        <path d="m4.7 4.7 1.4 1.4" />
-        <path d="m13.9 13.9 1.4 1.4" />
-        <path d="m13.9 6.1 1.4-1.4" />
-        <path d="m4.7 15.3 1.4-1.4" />
-        <circle cx="10" cy="10" r="3.1" />
-      </svg>
-    );
-  }
-
+function FilterIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="h-4.5 w-4.5"
-      fill="currentColor"
-    >
-      <path d="M13.9 2.8c-3.9.6-6.8 4-6.8 8 0 3 1.7 5.7 4.4 7a7.1 7.1 0 1 1 2.4-15Z" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M1.5 3.5h11M3.5 7h7M5.5 10.5h3" />
     </svg>
   );
 }
 
-function getCompactSummary(
-  query: string,
-  categories: Set<ConferenceCategory>,
-  visibleMilestoneTypes: Set<MilestoneType>,
-  availableMilestoneTypes: MilestoneType[],
-) {
-  const parts: string[] = [];
-
-  if (query.trim().length > 0) {
-    parts.push(`Search: ${query.trim()}`);
-  }
-
-  parts.push(
-    categories.size > 0 ? `${categories.size} categories` : "All categories",
-  );
-
-  if (visibleMilestoneTypes.size === availableMilestoneTypes.length) {
-    parts.push("All milestones");
-  } else {
-    parts.push(`${visibleMilestoneTypes.size} milestones`);
-  }
-
-  return parts.join(" · ");
-}
-
-function renderSectionLabel(label: string) {
+function CloseIcon() {
   return (
-    <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">
-      {label}
-    </p>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" />
+    </svg>
   );
 }
 
-function FilterSections({
+function getControlButtonClass(isActive: boolean) {
+  return isActive
+    ? "border-[var(--text-primary)] bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
+    : "border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]";
+}
+
+function getMilestonePopoverPosition(anchorRect: DOMRect) {
+  const width = 256;
+  const viewportPadding = 16;
+
+  return {
+    left: Math.max(
+      viewportPadding,
+      Math.min(anchorRect.right - width, window.innerWidth - width - viewportPadding),
+    ),
+    top: anchorRect.bottom + 6,
+    width,
+  };
+}
+
+export function ControlsBar({
   query,
   onQueryChange,
+  activePreset,
+  activeFilterCount,
   availableCategories,
   categories,
   onCategoryToggle,
@@ -152,321 +117,273 @@ function FilterSections({
   visibleMilestoneTypes,
   onMilestoneToggle,
   onPresetSelect,
-}: Pick<
-  ControlsBarProps,
-  | "query"
-  | "onQueryChange"
-  | "availableCategories"
-  | "categories"
-  | "onCategoryToggle"
-  | "availableMilestoneTypes"
-  | "visibleMilestoneTypes"
-  | "onMilestoneToggle"
-  | "onPresetSelect"
->) {
-  return (
-    <div className="flex flex-col gap-5">
-      <section className="space-y-2.5">
-        {renderSectionLabel("Search")}
-        <input
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search conferences"
-          className="w-full rounded-[20px] border border-[var(--panel-border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
-        />
-      </section>
-
-      <section className="space-y-2.5">
-        {renderSectionLabel("Range")}
-        <div
-          className="grid grid-cols-4 gap-2"
-          role="group"
-          aria-label="Range presets"
-        >
-          {PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => onPresetSelect(preset)}
-              className="cursor-pointer rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] transition hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-2.5">
-        {renderSectionLabel("Categories")}
-        <div
-          className="flex flex-wrap items-center gap-2"
-          role="group"
-          aria-label="Category filters"
-        >
-          {availableCategories.map((category) => {
-            const isActive = categories.has(category);
-
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => onCategoryToggle(category)}
-                aria-pressed={isActive}
-                className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-[var(--accent-primary)] text-white"
-                    : "border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
-                }`}
-              >
-                {category}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="space-y-2.5">
-        {renderSectionLabel("Milestones")}
-        <div
-          className="flex flex-wrap items-center gap-2"
-          role="group"
-          aria-label="Milestone filters"
-        >
-          {availableMilestoneTypes.map((milestoneType) => {
-            const isActive = visibleMilestoneTypes.has(milestoneType);
-
-            return (
-              <button
-                key={milestoneType}
-                type="button"
-                onClick={() => onMilestoneToggle(milestoneType)}
-                aria-pressed={isActive}
-                className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
-                    : "border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
-                }`}
-              >
-                {MILESTONE_LABELS[milestoneType]}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function MobileControls({
-  query,
-  categories,
-  visibleMilestoneTypes,
-  availableMilestoneTypes,
-  onMobileMenuExpand,
-  isMobileCompact,
+  hasActiveFilters,
+  onClearFilters,
   theme,
   onThemeToggle,
-  availableCategories,
-  onCategoryToggle,
-  onMilestoneToggle,
-  onPresetSelect,
-  onQueryChange,
-}: Pick<
-  ControlsBarProps,
-  | "query"
-  | "categories"
-  | "visibleMilestoneTypes"
-  | "availableMilestoneTypes"
-  | "onMobileMenuExpand"
-  | "isMobileCompact"
-  | "theme"
-  | "onThemeToggle"
-> &
-  Pick<
-    ControlsBarProps,
-    | "availableCategories"
-    | "onCategoryToggle"
-    | "onMilestoneToggle"
-    | "onPresetSelect"
-    | "onQueryChange"
-  >) {
-  const compactSummary = getCompactSummary(
-    query,
-    categories,
-    visibleMilestoneTypes,
-    availableMilestoneTypes,
-  );
+}: ControlsBarProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersButtonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const popoverPanelRef = useRef<HTMLDivElement>(null);
+  const milestonePopoverId = useId();
+  const [popoverPosition, setPopoverPosition] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: PointerEvent) {
+      const target = event.target as Node;
+
+      if (
+        popoverPanelRef.current?.contains(target) ||
+        filtersButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setFiltersOpen(false);
+    }
+
+    if (filtersOpen) {
+      document.addEventListener("pointerdown", handleClickOutside);
+    }
+
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    if (!filtersOpen) {
+      return;
+    }
+
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setFiltersOpen(false);
+      filtersButtonRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleEscapeKey);
+    return () => document.removeEventListener("keydown", handleEscapeKey);
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    if (!filtersOpen) {
+      return;
+    }
+
+    function syncPopoverPosition() {
+      const anchorRect = filtersButtonRef.current?.getBoundingClientRect();
+
+      if (!anchorRect) {
+        return;
+      }
+
+      setPopoverPosition(getMilestonePopoverPosition(anchorRect));
+    }
+
+    syncPopoverPosition();
+    window.addEventListener("resize", syncPopoverPosition);
+    window.addEventListener("scroll", syncPopoverPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", syncPopoverPosition);
+      window.removeEventListener("scroll", syncPopoverPosition, true);
+    };
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const activeMilestoneFilterCount = availableMilestoneTypes.filter(
+    (type) => !visibleMilestoneTypes.has(type),
+  ).length;
 
   return (
-    <div
-      data-testid="timeline-menu"
-      data-layout="mobile"
-      data-collapsed="false"
-      data-compact={String(isMobileCompact)}
-      className="timeline-menu-shell timeline-menu-mobile sticky top-3 z-30"
-    >
-      <div
-        className={`timeline-menu-mobile-panel relative overflow-hidden transition-[max-height,border-radius,padding,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          isMobileCompact
-            ? "max-h-[84px] rounded-[24px] px-3 py-3"
-            : "max-h-[720px] rounded-[30px] px-4 py-4 backdrop-blur-xl"
-        }`}
-      >
-        <div
-          data-testid="timeline-menu-compact"
-          data-state={isMobileCompact ? "visible" : "hidden"}
-          aria-hidden={!isMobileCompact}
-          className={`absolute inset-x-3 top-3 flex items-center gap-3 transition-[opacity,transform] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            isMobileCompact
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-2 opacity-0"
-          }`}
-        >
-          <button
-            type="button"
-            tabIndex={isMobileCompact ? 0 : -1}
-            onClick={onMobileMenuExpand}
-            className="shrink-0 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-          >
-            Filters
-          </button>
-          <p className="timeline-menu-summary min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-muted)]">
-            {compactSummary}
-          </p>
-          <button
-            type="button"
-            tabIndex={isMobileCompact ? 0 : -1}
-            onClick={onThemeToggle}
-            aria-label={theme === "light" ? "Dark mode" : "Light mode"}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-          >
-            <ThemeIcon theme={theme} />
-          </button>
-        </div>
-
-        <div
-          data-testid="timeline-menu-expanded"
-          data-state={isMobileCompact ? "collapsed" : "expanded"}
-          aria-hidden={isMobileCompact}
-          className={`overflow-hidden transition-[opacity,transform,max-height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            isMobileCompact
-              ? "pointer-events-none max-h-0 -translate-y-3 opacity-0"
-              : "max-h-[640px] translate-y-0 opacity-100"
-          }`}
-        >
-          <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-              Filters
-            </p>
-            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-              Refine the visible timeline
-            </h2>
-            <p className="max-w-[32ch] text-sm leading-6 text-[var(--text-muted)]">
-              Focus the venues, milestones, and horizon without leaving the page.
-            </p>
-          </div>
-
-          <div className="mt-5">
-            <FilterSections
-              query={query}
-              onQueryChange={onQueryChange}
-              availableCategories={availableCategories}
-              categories={categories}
-              onCategoryToggle={onCategoryToggle}
-              availableMilestoneTypes={availableMilestoneTypes}
-              visibleMilestoneTypes={visibleMilestoneTypes}
-              onMilestoneToggle={onMilestoneToggle}
-              onPresetSelect={onPresetSelect}
+    <div className="sticky top-0 z-20 border-b border-[var(--panel-border)] bg-[var(--controls-bg)] px-4 py-3 md:px-6">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-2.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              aria-label="Search conferences"
+              placeholder="Search conferences..."
+              className="timeline-control h-11 w-full rounded-lg border border-[var(--panel-border)] bg-[var(--input-bg)] px-3.5 pr-14 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onQueryChange("");
+                  inputRef.current?.focus();
+                }}
+                aria-label="Clear search"
+                className="timeline-control absolute top-1/2 right-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--chip-bg)]"
+              >
+                <CloseIcon />
+              </button>
+            ) : (
+              <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-[var(--panel-border)] bg-[var(--chip-bg)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+                ⌘K
+              </kbd>
+            )}
           </div>
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+            <div
+              className="flex items-center overflow-hidden rounded-lg border border-[var(--panel-border)]"
+              role="group"
+              aria-label="Range presets"
+            >
+              {PRESETS.map((preset) => {
+                const isActive = activePreset === preset;
 
-          <div className="mt-5 border-t border-[var(--panel-border)] pt-4">
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => onPresetSelect(preset)}
+                    aria-pressed={isActive}
+                    className={`timeline-control relative h-11 cursor-pointer border-r border-[var(--panel-border)] px-3.5 py-1.5 text-[11px] font-medium last:border-r-0 focus-visible:z-10 ${isActive ? "bg-[var(--surface-elevated)] text-[var(--text-primary)]" : "bg-[var(--chip-bg)] text-[var(--text-muted)] hover:bg-[var(--chip-active-bg)] hover:text-[var(--text-primary)]"}`}
+                  >
+                    {preset}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="relative">
+              <button
+                ref={filtersButtonRef}
+                type="button"
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-controls={milestonePopoverId}
+                aria-expanded={filtersOpen}
+                aria-haspopup="dialog"
+                className={`timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(filtersOpen || activeMilestoneFilterCount > 0)}`}
+              >
+                <FilterIcon />
+                Milestones
+                {activeMilestoneFilterCount > 0 ? (
+                  <span className="ml-0.5 rounded-full bg-[var(--text-primary)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--page-bg)]">
+                    {activeMilestoneFilterCount}
+                  </span>
+                ) : null}
+              </button>
+              {filtersOpen && popoverPosition && typeof document !== "undefined"
+                ? createPortal(
+                    <div
+                      ref={popoverPanelRef}
+                      id={milestonePopoverId}
+                      role="dialog"
+                      aria-label="Milestone filter controls"
+                      className="timeline-floating-surface fixed z-[70] rounded-xl border border-[var(--panel-border)] p-3 shadow-lg"
+                      style={{
+                        left: popoverPosition.left,
+                        top: popoverPosition.top,
+                        width: popoverPosition.width,
+                      }}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                          Milestone types
+                        </p>
+                        {activeMilestoneFilterCount > 0 ? (
+                          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                            {activeMilestoneFilterCount} hidden
+                          </span>
+                        ) : null}
+                      </div>
+                      <div
+                        className="flex flex-wrap gap-1.5"
+                        role="group"
+                        aria-label="Milestone filters"
+                      >
+                        {availableMilestoneTypes.map((milestoneType) => {
+                          const isActive = visibleMilestoneTypes.has(milestoneType);
+
+                          return (
+                            <button
+                              key={milestoneType}
+                              type="button"
+                              onClick={() => onMilestoneToggle(milestoneType)}
+                              aria-pressed={isActive}
+                              className={`timeline-control min-h-9 cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${getControlButtonClass(isActive)}`}
+                            >
+                              {MILESTONE_LABELS[milestoneType]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>,
+                    document.body,
+                  )
+                : null}
+            </div>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClearFilters();
+                  setFiltersOpen(false);
+                }}
+                aria-label="Reset filters"
+                className="timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)]"
+              >
+                Reset
+                <span className="rounded-full bg-[var(--chip-active-bg)] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[var(--text-muted)]">
+                  {activeFilterCount}
+                </span>
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onThemeToggle}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              className={`timeline-control flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border ${getControlButtonClass(theme === "dark")}`}
             >
-              <ThemeIcon theme={theme} />
-              {theme === "light" ? "Dark mode" : "Light mode"}
+              {theme === "light" ? <MoonIcon /> : <SunIcon />}
             </button>
           </div>
         </div>
+        {availableCategories.length > 0 ? (
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            role="group"
+            aria-label="Category filters"
+          >
+            {availableCategories.map((category) => {
+              const isActive = categories.has(category);
+
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => onCategoryToggle(category)}
+                  aria-pressed={isActive}
+                  className={`timeline-control min-h-9 cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${getControlButtonClass(isActive)}`}
+                >
+                  {CATEGORY_LABELS[category]}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </div>
   );
-}
-
-function DesktopControls(props: ControlsBarProps) {
-  const { isDesktopCollapsed, onDesktopMenuToggle, onThemeToggle, theme } =
-    props;
-
-  return (
-    <aside
-      data-testid="timeline-menu"
-      data-layout="desktop"
-      data-collapsed={String(isDesktopCollapsed)}
-      data-compact="false"
-      className={`timeline-menu-shell timeline-menu-desktop sticky top-0 hidden h-screen overflow-hidden border-r border-[var(--panel-border)] bg-[var(--surface-bg)] lg:flex ${
-        isDesktopCollapsed ? "w-[78px]" : "w-[336px]"
-      }`}
-    >
-      <div
-        data-testid="timeline-menu-rail"
-        className="timeline-menu-rail flex h-full w-[78px] shrink-0 flex-col items-center justify-between border-r border-[var(--panel-border)] bg-[color-mix(in_srgb,var(--surface-bg)_92%,transparent)] px-3 py-4"
-      >
-        <button
-          type="button"
-          aria-label={isDesktopCollapsed ? "Expand menu" : "Collapse menu"}
-          onClick={onDesktopMenuToggle}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-        >
-          {isDesktopCollapsed ? <MenuIcon /> : <CollapseIcon />}
-        </button>
-
-        <button
-          type="button"
-          onClick={onThemeToggle}
-          aria-label={theme === "light" ? "Dark mode" : "Light mode"}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-        >
-          <ThemeIcon theme={theme} />
-        </button>
-      </div>
-
-      <div
-        className={`timeline-menu-drawer flex min-w-0 flex-1 flex-col ${
-          isDesktopCollapsed
-            ? "pointer-events-none translate-x-3 opacity-0"
-            : "translate-x-0 opacity-100"
-        }`}
-      >
-        <div className="flex h-full flex-col px-6 py-5">
-          <div className="space-y-2 pb-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-              Filters
-            </p>
-            <h2 className="text-[1.15rem] font-semibold tracking-tight text-[var(--text-primary)]">
-              Refine the visible timeline
-            </h2>
-            <p className="max-w-[30ch] text-sm leading-6 text-[var(--text-muted)]">
-              Focus the venues, milestones, and horizon without leaving the
-              page.
-            </p>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-5">
-            <FilterSections {...props} />
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-export function ControlsBar(props: ControlsBarProps) {
-  if (!props.isMobileViewport) {
-    return <DesktopControls {...props} />;
-  }
-
-  return <MobileControls {...props} />;
 }
