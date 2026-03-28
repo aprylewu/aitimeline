@@ -24,16 +24,22 @@ describe("organizeConferenceSections", () => {
       "ACL",
       "ICML",
       "KDD",
+      "MICCAI",
       "CoLM",
       "NeurIPS",
+      "SIGSPATIAL",
       "EMNLP",
     ]);
     expect(sections.past.map((conference) => conference.shortName)).toEqual([
       "CHI",
       "ICLR",
+      "Eurographics",
+      "WWW",
       "SIGMOD",
       "ICDE",
+      "MLSys",
       "CVPR",
+      "EuroVis",
     ]);
   });
 

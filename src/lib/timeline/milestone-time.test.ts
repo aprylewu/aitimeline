@@ -15,6 +15,15 @@ it("converts AoE milestones to a real deadline instant", () => {
   );
 });
 
+it("supports explicit IANA source time zones for conference deadlines", () => {
+  expect(
+    getMilestoneInstant({
+      dateStart: "2026-03-30",
+      timezone: "America/Los_Angeles",
+    }).toISOString(),
+  ).toBe("2026-03-31T06:59:59.999Z");
+});
+
 it("formats milestone dates in the viewer timezone", () => {
   expect(
     formatMilestoneDateLabel(colmFullPaper, "Asia/Shanghai"),

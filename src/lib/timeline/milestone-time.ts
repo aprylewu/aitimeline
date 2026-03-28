@@ -124,6 +124,10 @@ function getMilestoneTimeZone(
     return "UTC";
   }
 
+  if (isValidTimeZone(milestone.timezone)) {
+    return milestone.timezone;
+  }
+
   return resolveViewerTimeZone(viewerTimeZone);
 }
 
@@ -346,6 +350,8 @@ export function formatMilestoneSourceDateLabel(
       ? "AoE"
       : milestone.timezone === "UTC"
         ? "UTC"
+        : isValidTimeZone(milestone.timezone)
+          ? milestone.timezone
         : "Local";
 
   const formatted = formatWithTimeZone(milestoneInstant, sourceTimeZone).replace(
