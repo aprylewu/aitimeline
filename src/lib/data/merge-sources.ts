@@ -34,7 +34,7 @@ function makeMilestone(
   timezone: string,
 ): Milestone {
   return {
-    id: `${confId}-${type}`,
+    id: `${confId}-${type}-${dateStart}`,
     type,
     label,
     dateStart,

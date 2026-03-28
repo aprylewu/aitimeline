@@ -36,12 +36,6 @@ function getDecisionMilestone(conference: Conference): Milestone | undefined {
   return findMilestone(conference, "notification");
 }
 
-function hasRenderablePrimaryPath(conference: Conference) {
-  return ["fullPaper", "rebuttalStart", "notification"].every((type) =>
-    conference.milestones.some((milestone) => milestone.type === type),
-  );
-}
-
 function isConferencePast(conference: Conference, now: Date) {
   const decisionMilestone = getDecisionMilestone(conference);
 
