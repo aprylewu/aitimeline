@@ -52,7 +52,7 @@ it("renders highlighted primary milestones and shows a tooltip on hover", async 
   await user.hover(fullPaperNode);
   expect(screen.getByText(/full paper/i)).toBeInTheDocument();
   expect(screen.getByTestId("milestone-tooltip")).toHaveStyle({
-    minWidth: "20rem",
+    minWidth: "18rem",
   });
 });
 
@@ -168,5 +168,5 @@ it("renders larger month labels for the shared axis", () => {
     />,
   );
 
-  expect(screen.getByText("Apr")).toHaveClass("text-[13px]");
+  expect(screen.getByText("Apr")).toHaveClass("text-[11px]");
 });

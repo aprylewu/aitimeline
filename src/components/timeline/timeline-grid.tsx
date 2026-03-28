@@ -166,7 +166,7 @@ export function TimelineGrid({
   return (
     <div className="relative min-w-[980px]">
       <div className="grid grid-cols-[180px_minmax(0,1fr)]">
-        <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+        <div className="timeline-meta-head border-b border-[var(--panel-border)] px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Venue
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
@@ -180,7 +180,7 @@ export function TimelineGrid({
                   className="timeline-axis-tick"
                   style={{ left: `${left}%` }}
                 >
-                  <div className="timeline-axis-label text-[13px] font-medium text-[var(--text-muted)]">
+                  <div className="timeline-axis-label font-mono text-[11px] font-medium text-[var(--text-muted)]">
                     {format(tick, "MMM")}
                   </div>
                 </div>
@@ -234,7 +234,7 @@ export function TimelineGrid({
                       {showConferenceDetails ? (
                         <div
                           data-testid={`conference-detail-card-${conference.id}`}
-                          className="conference-detail-card absolute top-1/2 left-3 z-30 w-80 rounded-xl border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-4 shadow-lg"
+                          className="conference-detail-card absolute top-1/2 left-3 z-30 w-72 rounded-lg border border-[var(--panel-border)] bg-[var(--tooltip-bg)] p-3.5 shadow-md backdrop-blur-xl"
                         >
                           <ConferenceMetaColumn conference={conference} />
                         </div>
@@ -242,13 +242,13 @@ export function TimelineGrid({
                     </div>
                     <div className="timeline-row border-b border-[var(--panel-border)] px-4">
                       <div className="timeline-row-grid pointer-events-none absolute inset-0" />
-                      <div className="absolute top-[31px] left-0 right-0 h-[2px] bg-[var(--path-baseline)]" />
+                      <div className="absolute top-[31px] left-0 right-0 h-px bg-[var(--path-baseline)]" />
                       {firstPrimaryMilestone && lastPrimaryMilestone ? (
                         <div
                           data-testid={`primary-path-${conference.id}`}
                           data-path-start={firstPrimaryMilestone.type}
                           data-path-end={lastPrimaryMilestone.type}
-                          className="absolute top-[28px] h-[8px] rounded-full bg-[var(--path-track)]"
+                          className="absolute top-[30px] h-[4px] rounded-full bg-[var(--path-track)]"
                           style={{
                             left: `${getPositionPercent(
                               parseISO(firstPrimaryMilestone.dateStart),
@@ -283,7 +283,7 @@ export function TimelineGrid({
                             data-testid={`range-${conference.id}-${segment.key}`}
                             data-tone={segment.tone}
                             key={`${conference.id}-${segment.key}`}
-                            className={`absolute top-[28px] h-[8px] rounded-full ${getToneClass(segment.tone, "range")}`}
+                            className={`absolute top-[30px] h-[4px] rounded-full ${getToneClass(segment.tone, "range")}`}
                             style={{
                               left: `${left}%`,
                               width: `${Math.max(1.5, right - left)}%`,
@@ -325,16 +325,16 @@ export function TimelineGrid({
                               })
                             }
                             onBlur={() => setHoveredMilestone(null)}
-                            className={`timeline-marker absolute -translate-x-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] ${
+                            className={`timeline-marker absolute rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] ${
                               isPrimaryPath
-                                ? "top-[20px] h-6 w-6"
-                                : "top-[24px] h-4 w-4 opacity-70"
+                                ? "top-[22px] h-5 w-5 -translate-x-1/2"
+                                : "top-[25px] h-3.5 w-3.5 -translate-x-1/2 opacity-50"
                             }`}
                             style={{ left: `${left}%` }}
                           >
                             <span
                               className={`absolute rounded-full ${getToneClass(tone, "marker")} ${
-                                isPrimaryPath ? "inset-[4px]" : "inset-[3px]"
+                                isPrimaryPath ? "inset-[3px]" : "inset-[2px]"
                               }`}
                             />
                             {isHovered ? (
@@ -360,8 +360,12 @@ export function TimelineGrid({
           <div className="relative mx-4 h-full">
             <div
               data-testid="today-line"
-              className="absolute inset-y-0 w-px bg-[var(--accent-secondary)]/70"
-              style={{ left: `${todayLeft}%` }}
+              className="absolute inset-y-0 w-px"
+              style={{
+                left: `${todayLeft}%`,
+                backgroundImage: `repeating-linear-gradient(to bottom, var(--accent-secondary) 0, var(--accent-secondary) 4px, transparent 4px, transparent 8px)`,
+                opacity: 0.5,
+              }}
             />
             <span
               data-testid="today-label"
