@@ -71,10 +71,6 @@ export function organizeConferenceSections({
     visibleMilestoneTypes,
     visibleRange,
   })
-    .filter((conference) => {
-      const sourceConference = conferenceLookup.get(conference.id) ?? conference;
-      return hasRenderablePrimaryPath(sourceConference);
-    })
     .sort((left, right) => {
       const leftSource = conferenceLookup.get(left.id) ?? left;
       const rightSource = conferenceLookup.get(right.id) ?? right;

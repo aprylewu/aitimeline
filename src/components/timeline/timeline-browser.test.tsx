@@ -43,7 +43,7 @@ it("shows active and past sections, a today marker, and hover details", async ()
   expect(screen.getByTestId("today-line")).toBeInTheDocument();
   expect(screen.getByLabelText(/camera-ready/i)).toBeInTheDocument();
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
-  expect(screen.queryByText("NeurIPS")).not.toBeInTheDocument();
+  expect(screen.queryByText("NeurIPS")).toBeInTheDocument();
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
 
   await user.hover(screen.getByTestId("conference-trigger-colm-2026"));

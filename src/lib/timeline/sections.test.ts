@@ -25,6 +25,7 @@ describe("organizeConferenceSections", () => {
       "ICML",
       "KDD",
       "CoLM",
+      "NeurIPS",
     ]);
     expect(sections.past.map((conference) => conference.shortName)).toEqual([
       "CHI",
@@ -33,8 +34,5 @@ describe("organizeConferenceSections", () => {
       "ICDE",
       "CVPR",
     ]);
-    expect(
-      sections.active.some((conference) => conference.shortName === "NeurIPS"),
-    ).toBe(false);
   });
 });
