@@ -22,17 +22,27 @@ describe("organizeConferenceSections", () => {
 
     expect(sections.active.map((conference) => conference.shortName)).toEqual([
       "ACL",
+      "DIS",
+      "IJCAI",
       "ICML",
       "KDD",
+      "MICCAI",
+      "ECSCW",
       "CoLM",
       "NeurIPS",
+      "SIGSPATIAL",
+      "EMNLP",
     ]);
     expect(sections.past.map((conference) => conference.shortName)).toEqual([
       "CHI",
       "ICLR",
+      "Eurographics",
+      "WWW",
       "SIGMOD",
       "ICDE",
+      "MLSys",
       "CVPR",
+      "EuroVis",
     ]);
   });
 });

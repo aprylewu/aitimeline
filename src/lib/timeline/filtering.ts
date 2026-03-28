@@ -1,10 +1,10 @@
-import { parseISO } from "date-fns";
 import type {
   Conference,
   ConferenceCategory,
   Milestone,
   MilestoneType,
 } from "@/types/conference";
+import { getMilestoneRange } from "./milestone-time";
 
 interface VisibleRange {
   start: Date;
@@ -17,6 +17,7 @@ interface FilterArgs {
   categories: Set<ConferenceCategory>;
   visibleMilestoneTypes: Set<MilestoneType>;
   visibleRange: VisibleRange;
+  viewerTimeZone?: string;
 }
 
 function matchesQuery(conference: Conference, query: string) {
@@ -31,15 +32,25 @@ function matchesQuery(conference: Conference, query: string) {
   );
 }
 
-function intersectsVisibleRange(milestone: Milestone, range: VisibleRange) {
-  const start = parseISO(milestone.dateStart);
-  const end = parseISO(milestone.dateEnd ?? milestone.dateStart);
+function intersectsVisibleRange(
+  milestone: Milestone,
+  range: VisibleRange,
+  viewerTimeZone?: string,
+) {
+  const { start, end } = getMilestoneRange(milestone, viewerTimeZone);
 
   return start <= range.end && end >= range.start;
 }
 
 export function filterConferences(args: FilterArgs): Conference[] {
-  const { conferences, query, categories, visibleMilestoneTypes, visibleRange } =
+  const {
+    conferences,
+    query,
+    categories,
+    visibleMilestoneTypes,
+    visibleRange,
+    viewerTimeZone,
+  } =
     args;
 
   return conferences
@@ -48,15 +59,14 @@ export function filterConferences(args: FilterArgs): Conference[] {
         return false;
       }
 
-      return matchesQuery(conference, query);
-    })
-    .map((conference) => ({
-      ...conference,
-      milestones: conference.milestones.filter(
+      if (!matchesQuery(conference, query)) {
+        return false;
+      }
+
+      return conference.milestones.some(
         (milestone) =>
           visibleMilestoneTypes.has(milestone.type) &&
-          intersectsVisibleRange(milestone, visibleRange),
-      ),
-    }))
-    .filter((conference) => conference.milestones.length > 0);
+          intersectsVisibleRange(milestone, visibleRange, viewerTimeZone),
+      );
+    });
 }

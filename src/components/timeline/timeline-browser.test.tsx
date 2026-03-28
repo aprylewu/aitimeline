@@ -41,7 +41,7 @@ it("shows active and past sections, a today marker, and hover details", async ()
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByText("Past")).toBeInTheDocument();
   expect(screen.getByTestId("today-line")).toBeInTheDocument();
-  expect(screen.getByLabelText(/camera-ready/i)).toBeInTheDocument();
+  expect(screen.getAllByLabelText(/camera-ready/i).length).toBeGreaterThan(0);
   expect(screen.getAllByLabelText(/conference starts/i).length).toBeGreaterThan(0);
   expect(screen.queryByText("NeurIPS")).toBeInTheDocument();
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
@@ -57,11 +57,11 @@ it("shows the clear action for non-default preset and milestone filters", async 
   render(
     <TimelineBrowser
       conferences={conferences}
-      now={new Date("2025-06-20T00:00:00Z")}
+      now={new Date("2025-04-20T00:00:00Z")}
     />,
   );
 
-  expect(screen.getByText("CHI")).toBeInTheDocument();
+  expect(screen.getByText("AAAI")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "3M" }));
 
@@ -74,7 +74,7 @@ it("shows the clear action for non-default preset and milestone filters", async 
 
   await user.click(screen.getByRole("button", { name: /clear filters/i }));
 
-  expect(screen.getByText("CHI")).toBeInTheDocument();
+  expect(screen.getByText("AAAI")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: /milestones/i }));
 
