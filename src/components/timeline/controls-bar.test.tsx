@@ -14,6 +14,9 @@ it("updates the visible rows when search and presets change", async () => {
   );
 
   expect(screen.getByRole("button", { name: "AI / ML" })).toBeInTheDocument();
+
+  // Milestone filters are now behind a "Filters" popover — open it first
+  await user.click(screen.getByRole("button", { name: /filters/i }));
   expect(
     within(
       screen.getByRole("group", { name: /milestone filters/i }),
