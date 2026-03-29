@@ -1,5 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 import { conferences } from "@/data/conferences";
 import { TimelineBrowser } from "./timeline-browser";
 
@@ -49,6 +50,35 @@ it("shows active and past sections, a today marker, and hover details", async ()
   await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
 
   expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
+});
+
+it("shows Abstract milestones by default when they differ from the full paper deadline", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getAllByLabelText("Abstract").length).toBeGreaterThan(0);
+});
+
+it("shows inline conference details when a conference title is clicked", async () => {
+  const user = userEvent.setup();
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+
+  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
+    "aria-hidden",
+    "false",
+  );
 });
 
 it("shows the clear action for non-default preset and milestone filters", async () => {
@@ -146,6 +176,59 @@ it("drags the timeline surface horizontally with pointer input", async () => {
   ]);
 
   expect(surface.scrollLeft).toBeGreaterThan(120);
+});
+
+it("starts with a horizontally scrollable timeline focused on the default two-month back and four-month forward window", async () => {
+  const clientWidthSpy = vi
+    .spyOn(HTMLElement.prototype, "clientWidth", "get")
+    .mockReturnValue(960);
+  const ResizeObserverMock = class {
+    constructor(
+      private readonly callback: ResizeObserverCallback,
+    ) {}
+
+    observe(target: Element) {
+      this.callback(
+        [
+          {
+            target,
+            contentRect: {
+              width: 960,
+              height: 480,
+              top: 0,
+              left: 0,
+              bottom: 480,
+              right: 960,
+              x: 0,
+              y: 0,
+              toJSON: () => ({}),
+            },
+          } as ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      );
+    }
+
+    unobserve() {}
+
+    disconnect() {}
+  };
+
+  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-27T00:00:00Z")}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("timeline-surface").scrollLeft).toBeGreaterThan(0);
+  });
+
+  clientWidthSpy.mockRestore();
+  vi.unstubAllGlobals();
 });
 
 it("keeps the empty-data state stable when the all-range preset is selected", async () => {

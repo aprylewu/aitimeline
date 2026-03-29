@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { addMonths, format, parseISO, subMonths } from "date-fns";
+import { addMonths, format, subMonths } from "date-fns";
 import { ControlsBar, type RangePreset } from "./controls-bar";
 import { TimelineGrid } from "./timeline-grid";
 import {
   alignVisibleRangeToMonthBounds,
   getDefaultVisibleRange,
 } from "@/lib/timeline/date-range";
+import { getMilestoneRange } from "@/lib/timeline/milestone-time";
 import { organizeConferenceSections } from "@/lib/timeline/sections";
 import type {
   Conference,
@@ -28,6 +29,7 @@ interface SurfaceDragState {
 }
 
 const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
+  "abstract",
   "fullPaper",
   "rebuttalStart",
   "rebuttalEnd",
@@ -38,6 +40,7 @@ const DEFAULT_VISIBLE_MILESTONE_TYPES: MilestoneType[] = [
 ];
 
 const LEGEND_ITEMS = [
+  { label: "Abstract", variable: "--timeline-neutral" },
   { label: "Submission", variable: "--timeline-full-paper" },
   { label: "Rebuttal", variable: "--timeline-rebuttal" },
   { label: "Decision", variable: "--timeline-notification" },
@@ -81,8 +84,8 @@ function getAllRange(conferences: Conference[]) {
   const points = conferences
     .flatMap((conference) =>
       conference.milestones.flatMap((milestone) => [
-        parseISO(milestone.dateStart),
-        parseISO(milestone.dateEnd ?? milestone.dateStart),
+        getMilestoneRange(milestone).start,
+        getMilestoneRange(milestone).end,
       ]),
     )
     .filter((point) => Number.isFinite(point.getTime()));
@@ -95,6 +98,91 @@ function getAllRange(conferences: Conference[]) {
     start: new Date(Math.min(...points.map((point) => point.getTime()))),
     end: new Date(Math.max(...points.map((point) => point.getTime()))),
   });
+}
+
+function clampFocusRangeToTimeline(
+  focusRange: { start: Date; end: Date },
+  timelineRange: { start: Date; end: Date },
+) {
+  const focusDuration = focusRange.end.getTime() - focusRange.start.getTime();
+  const timelineDuration =
+    timelineRange.end.getTime() - timelineRange.start.getTime();
+
+  if (focusDuration >= timelineDuration) {
+    return timelineRange;
+  }
+
+  if (focusRange.start.getTime() < timelineRange.start.getTime()) {
+    return {
+      start: timelineRange.start,
+      end: new Date(timelineRange.start.getTime() + focusDuration),
+    };
+  }
+
+  if (focusRange.end.getTime() > timelineRange.end.getTime()) {
+    return {
+      start: new Date(timelineRange.end.getTime() - focusDuration),
+      end: timelineRange.end,
+    };
+  }
+
+  return focusRange;
+}
+
+function getTimelineContentWidth(args: {
+  focusRange: { start: Date; end: Date };
+  timelineRange: { start: Date; end: Date };
+  viewportWidth: number;
+}) {
+  const { focusRange, timelineRange, viewportWidth } = args;
+
+  if (viewportWidth <= 0) {
+    return 980;
+  }
+
+  const timelineDuration =
+    timelineRange.end.getTime() - timelineRange.start.getTime();
+  const focusDuration = Math.max(
+    1,
+    focusRange.end.getTime() - focusRange.start.getTime(),
+  );
+
+  if (timelineDuration <= 0 || focusDuration >= timelineDuration) {
+    return Math.max(980, viewportWidth);
+  }
+
+  return Math.max(
+    980,
+    Math.ceil(viewportWidth * (timelineDuration / focusDuration)),
+  );
+}
+
+function getFocusScrollLeft(args: {
+  contentWidth: number;
+  focusRange: { start: Date; end: Date };
+  timelineRange: { start: Date; end: Date };
+  viewportWidth: number;
+}) {
+  const { contentWidth, focusRange, timelineRange, viewportWidth } = args;
+
+  if (contentWidth <= viewportWidth) {
+    return 0;
+  }
+
+  const timelineDuration =
+    timelineRange.end.getTime() - timelineRange.start.getTime();
+
+  if (timelineDuration <= 0) {
+    return 0;
+  }
+
+  const offset = Math.max(
+    0,
+    focusRange.start.getTime() - timelineRange.start.getTime(),
+  );
+  const rawScrollLeft = (offset / timelineDuration) * contentWidth;
+
+  return Math.min(contentWidth - viewportWidth, rawScrollLeft);
 }
 
 export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
@@ -111,6 +199,8 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
   );
   const surfaceDragStateRef = useRef<SurfaceDragState | null>(null);
+  const timelineSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const [timelineSurfaceWidth, setTimelineSurfaceWidth] = useState(0);
   const defaultVisibleRange = useMemo(() => getDefaultVisibleRange(now), [now]);
   const presetRanges = useMemo(
     () =>
@@ -120,6 +210,20 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     [now],
   );
   const allRange = useMemo(() => getAllRange(conferences), [conferences]);
+  const timelineRange = allRange ?? defaultVisibleRange;
+  const scrollFocusRange = useMemo(
+    () => clampFocusRangeToTimeline(visibleRange, timelineRange),
+    [timelineRange, visibleRange],
+  );
+  const timelineContentWidth = useMemo(
+    () =>
+      getTimelineContentWidth({
+        focusRange: scrollFocusRange,
+        timelineRange,
+        viewportWidth: timelineSurfaceWidth,
+      }),
+    [scrollFocusRange, timelineRange, timelineSurfaceWidth],
+  );
   const availableCategories = useMemo(
     () =>
       Array.from(
@@ -227,7 +331,14 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
         visibleRange,
         now,
       }),
-    [categories, conferences, now, query, visibleMilestoneTypes, visibleRange],
+    [
+      categories,
+      conferences,
+      now,
+      query,
+      visibleRange,
+      visibleMilestoneTypes,
+    ],
   );
   const timelineSections = useMemo(
     () => [
@@ -269,6 +380,54 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
       ) ?? (allRange && rangesMatch(visibleRange, allRange) ? "All" : null),
     [allRange, presetRanges, visibleRange],
   );
+
+  useEffect(() => {
+    const surface = timelineSurfaceRef.current;
+
+    if (!surface) {
+      return undefined;
+    }
+
+    const updateWidth = () => {
+      setTimelineSurfaceWidth(surface.clientWidth);
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateWidth();
+    });
+
+    resizeObserver.observe(surface);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const surface = timelineSurfaceRef.current;
+
+    if (!surface || timelineSurfaceWidth <= 0) {
+      return;
+    }
+
+    surface.scrollLeft = getFocusScrollLeft({
+      contentWidth: timelineContentWidth,
+      focusRange: scrollFocusRange,
+      timelineRange,
+      viewportWidth: timelineSurfaceWidth,
+    });
+  }, [
+    scrollFocusRange,
+    timelineContentWidth,
+    timelineRange,
+    timelineSurfaceWidth,
+  ]);
 
   return (
     <main
@@ -336,6 +495,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
           </div>
         </div>
         <div
+          ref={timelineSurfaceRef}
           data-testid="timeline-surface"
           role="region"
           aria-label="Conference timeline"
@@ -351,7 +511,13 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
             isDraggingSurface ? "timeline-shell-dragging" : ""
           }`}
         >
-          <TimelineGrid sections={timelineSections} visibleRange={visibleRange} now={now} />
+          <TimelineGrid
+            sections={timelineSections}
+            visibleMilestoneTypes={visibleMilestoneTypes}
+            visibleRange={timelineRange}
+            width={timelineContentWidth}
+            now={now}
+          />
         </div>
         {visibleConferenceCount === 0 ? (
           <div className="mt-6 flex flex-col items-center py-12">

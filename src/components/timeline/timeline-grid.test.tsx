@@ -3,6 +3,28 @@ import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { TimelineGrid } from "./timeline-grid";
 
+const colmConference = conferences.find((conference) => conference.id === "colm-2026")!;
+const icmlConference = conferences.find((conference) => conference.id === "icml-2026")!;
+
+function renderTimelineGrid(visibleConferences = conferences.slice(0, 1)) {
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: visibleConferences,
+        },
+      ]}
+      visibleRange={{
+        start: new Date("2026-01-01T00:00:00Z"),
+        end: new Date("2026-12-31T00:00:00Z"),
+      }}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+}
+
 it("renders a continuous primary path bar", () => {
   render(
     <TimelineGrid
@@ -22,8 +44,8 @@ it("renders a continuous primary path bar", () => {
   );
 
   const path = screen.getByTestId("primary-path-colm-2026");
-  expect(path).toHaveAttribute("data-path-start", "fullPaper");
-  expect(path).toHaveAttribute("data-path-end", "notification");
+  expect(path).toHaveAttribute("data-path-start", "abstract");
+  expect(path).toHaveAttribute("data-path-end", "conferenceEnd");
 });
 
 it("renders highlighted primary milestones and shows a tooltip on hover", async () => {
@@ -98,6 +120,19 @@ it("renders a separate today label and an animated conference detail card", asyn
   expect(
     screen.getByTestId("conference-detail-card-colm-2026"),
   ).toHaveClass("timeline-floating-surface");
+});
+
+it("clicking a conference trigger expands an inline detail row", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([colmConference]);
+
+  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+
+  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
+    "aria-hidden",
+    "false",
+  );
 });
 
 it("keeps the sticky meta cell as the positioning context for the detail card", async () => {
@@ -308,6 +343,28 @@ it("anchors the first and last month labels inside the visible axis", () => {
   expect(screen.getByTestId("axis-label-6")).toHaveStyle({
     transform: "translateX(-100%)",
   });
+});
+
+it("does not render milestone markers that fall outside the visible range", () => {
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: [icmlConference],
+        },
+      ]}
+      visibleRange={{
+        start: new Date("2026-02-01T00:00:00Z"),
+        end: new Date("2026-08-01T00:00:00Z"),
+      }}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.queryByLabelText("Full paper")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Notification")).toBeInTheDocument();
 });
 
 it("does not fade the entire non-primary marker button", async () => {

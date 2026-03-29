@@ -45,4 +45,27 @@ describe("organizeConferenceSections", () => {
       "EuroVis",
     ]);
   });
+
+  it("does not mark an AoE decision as past before the real AoE deadline instant", () => {
+    const sections = organizeConferenceSections({
+      conferences: conferences.filter((conference) => conference.id === "iclr-2026"),
+      query: "",
+      categories: new Set(),
+      visibleMilestoneTypes: new Set([
+        "fullPaper",
+        "rebuttalStart",
+        "notification",
+      ]),
+      visibleRange: {
+        start: new Date("2026-01-01T00:00:00Z"),
+        end: new Date("2026-12-31T00:00:00Z"),
+      },
+      now: new Date("2026-01-26T06:00:00.000Z"),
+    });
+
+    expect(sections.active.map((conference) => conference.shortName)).toEqual([
+      "ICLR",
+    ]);
+    expect(sections.past).toHaveLength(0);
+  });
 });
