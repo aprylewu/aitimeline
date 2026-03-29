@@ -4,6 +4,14 @@ import { fetchCcfddl } from "./fetch-ccfddl";
 import { fetchHfDeadlines } from "./fetch-hf";
 import { mergeSources } from "./merge-sources";
 import cachedConferences from "./cache.json";
+import { sanitizeRankings } from "./rankings";
+
+function sanitizeConferenceRankings(conferences: Conference[]): Conference[] {
+  return conferences.map((conference) => ({
+    ...conference,
+    rankings: sanitizeRankings(conference.rankings),
+  }));
+}
 
 export async function getConferences(): Promise<Conference[]> {
   try {
@@ -15,7 +23,7 @@ export async function getConferences(): Promise<Conference[]> {
     const merged = mergeSources(ccfddlEntries, hfEntries);
 
     if (merged.length > 0) {
-      return merged;
+      return sanitizeConferenceRankings(merged);
     }
   } catch {
     // Fall through to cache
@@ -24,8 +32,8 @@ export async function getConferences(): Promise<Conference[]> {
   const cached = cachedConferences as Conference[];
 
   if (cached.length > 0) {
-    return cached;
+    return sanitizeConferenceRankings(cached);
   }
 
-  return staticConferences;
+  return sanitizeConferenceRankings(staticConferences);
 }

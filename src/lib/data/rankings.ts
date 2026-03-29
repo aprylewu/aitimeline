@@ -6,6 +6,36 @@ const RANKING_KEY_MAP: Record<string, keyof ConferenceRanking> = {
   thcpl: "thcpl",
 };
 
+const NON_DISPLAY_RANKING_VALUES = new Set([
+  "n",
+  "na",
+  "n/a",
+  "none",
+  "emerging",
+]);
+
+export function sanitizeRankings(raw: ConferenceRanking): ConferenceRanking {
+  const result: ConferenceRanking = {};
+
+  for (const [key, value] of Object.entries(raw) as Array<
+    [keyof ConferenceRanking, string | undefined]
+  >) {
+    const normalizedValue = value?.trim();
+
+    if (!normalizedValue) {
+      continue;
+    }
+
+    if (NON_DISPLAY_RANKING_VALUES.has(normalizedValue.toLowerCase())) {
+      continue;
+    }
+
+    result[key] = normalizedValue;
+  }
+
+  return result;
+}
+
 export function parseRankingsString(raw: string | null): ConferenceRanking {
   if (!raw || !raw.trim()) {
     return {};
@@ -25,5 +55,5 @@ export function parseRankingsString(raw: string | null): ConferenceRanking {
     }
   }
 
-  return result;
+  return sanitizeRankings(result);
 }

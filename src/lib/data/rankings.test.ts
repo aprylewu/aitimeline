@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRankingsString } from "./rankings";
+import { parseRankingsString, sanitizeRankings } from "./rankings";
 
 describe("parseRankingsString", () => {
   it("parses a full rankings string", () => {
@@ -26,6 +26,32 @@ describe("parseRankingsString", () => {
     expect(parseRankingsString("  CCF:  A ,  CORE:  B  ")).toEqual({
       ccf: "A",
       core: "B",
+    });
+  });
+});
+
+describe("sanitizeRankings", () => {
+  it("drops non-display ranking values", () => {
+    expect(
+      sanitizeRankings({
+        ccf: "N",
+        core: "Emerging",
+        thcpl: "A",
+      }),
+    ).toEqual({
+      thcpl: "A",
+    });
+  });
+
+  it("keeps recognized ranking values and trims whitespace", () => {
+    expect(
+      sanitizeRankings({
+        ccf: " A ",
+        core: " A* ",
+      }),
+    ).toEqual({
+      ccf: "A",
+      core: "A*",
     });
   });
 });
