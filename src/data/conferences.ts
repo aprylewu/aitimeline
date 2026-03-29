@@ -13,9 +13,7 @@ export const conferences: Conference[] = [
     cfpUrl: "https://colmweb.org/cfp.html",
     location: "San Francisco, United States",
     category: "AI",
-    rankings: {
-      core: "Emerging",
-    },
+    rankings: {},
     milestones: [
       {
         id: "colm-2026-abstract",

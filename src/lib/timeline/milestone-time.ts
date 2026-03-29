@@ -164,6 +164,28 @@ function formatWithTimeZone(date: Date, timeZone: string) {
   }).format(date);
 }
 
+export function formatCurrentTimeLabel(date: Date, viewerTimeZone?: string) {
+  const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: resolvedViewerTimeZone,
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+    timeZoneName: "shortOffset",
+  }).formatToParts(date);
+
+  function readPart(type: Intl.DateTimeFormatPartTypes) {
+    return parts.find((part) => part.type === type)?.value ?? "";
+  }
+
+  return `${readPart("month")} ${readPart("day")} ${readPart("hour")}:${readPart(
+    "minute",
+  )} ${readPart("timeZoneName")}`.trim();
+}
+
 export function resolveViewerTimeZone(viewerTimeZone?: string) {
   if (isValidTimeZone(viewerTimeZone)) {
     return viewerTimeZone;
@@ -333,7 +355,7 @@ export function formatMilestoneDateLabel(
   const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
   const milestoneInstant = getMilestoneInstant(milestone, resolvedViewerTimeZone);
 
-  return `Your time · ${formatWithTimeZone(
+  return `${resolvedViewerTimeZone} · ${formatWithTimeZone(
     milestoneInstant,
     resolvedViewerTimeZone,
   )}`;
@@ -365,32 +387,17 @@ export function formatMilestoneSourceDateLabel(
 export function formatCountdown(target: Date, now: Date) {
   const deltaMs = target.getTime() - now.getTime();
   const prefix = deltaMs >= 0 ? "T-" : "T+";
-  let remainingMs = Math.abs(deltaMs);
-
-  if (remainingMs < 60_000) {
-    return `${prefix}0m`;
-  }
-
-  const days = Math.floor(remainingMs / 86_400_000);
-  remainingMs -= days * 86_400_000;
-  const hours = Math.floor(remainingMs / 3_600_000);
-  remainingMs -= hours * 3_600_000;
-  const minutes = Math.floor(remainingMs / 60_000);
+  const roundedHours = Math.ceil(Math.abs(deltaMs) / 3_600_000);
+  const days = Math.floor(roundedHours / 24);
+  const hours = roundedHours % 24;
   const parts: string[] = [];
 
   if (days > 0) {
     parts.push(`${days}d`);
   }
 
-  if (hours > 0 && parts.length < 2) {
+  if (hours > 0 || parts.length === 0) {
     parts.push(`${hours}h`);
-  }
-
-  if (
-    parts.length === 0 ||
-    (parts.length < 2 && days === 0 && (hours === 0 || minutes > 0))
-  ) {
-    parts.push(`${minutes}m`);
   }
 
   return `${prefix}${parts.join(" ")}`;

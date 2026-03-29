@@ -31,3 +31,30 @@ it("uses wrapping-safe classes for long labels and notes", () => {
   expect(screen.getByText(milestone.label)).toHaveClass("break-words");
   expect(screen.getByText(milestone.note)).toHaveClass("break-words");
 });
+
+it("shows source and viewer timezone dates plus a T-minus countdown", () => {
+  const conference = conferences.find((item) => item.id === "colm-2026")!;
+  const milestone = conference.milestones.find(
+    (item) => item.type === "fullPaper",
+  )!;
+
+  render(
+    <MilestoneTooltip
+      anchorRect={{ left: 480, top: 240, width: 20 }}
+      conference={conference}
+      milestone={milestone}
+      now={new Date("2026-03-30T00:00:00.000Z")}
+      viewerTimeZone="Asia/Shanghai"
+    />,
+  );
+
+  expect(screen.getByTestId("milestone-tooltip")).toHaveTextContent(
+    "AoE · Mar 31, 2026, 11:59 PM AoE",
+  );
+  expect(screen.getByTestId("milestone-tooltip")).toHaveTextContent(
+    "Asia/Shanghai · Apr 1, 2026, 7:59 PM GMT+8",
+  );
+  expect(screen.getByTestId("milestone-tooltip")).toHaveTextContent(
+    "T-2d 12h",
+  );
+});

@@ -23,19 +23,26 @@ it("renders one shared gantt surface and supports dark mode", async () => {
   expect(screen.getByText(conferences[0]!.shortName)).toBeInTheDocument();
   expect(screen.getAllByTestId("timeline-surface")).toHaveLength(1);
   expect(browser).toHaveAttribute("data-theme", "light");
+  expect(document.documentElement).toHaveAttribute("data-theme", "light");
+  expect(document.body).toHaveAttribute("data-theme", "light");
 
   await user.click(screen.getByRole("button", { name: /dark mode/i }));
 
   expect(browser).toHaveAttribute("data-theme", "dark");
+  await waitFor(() => {
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(document.body).toHaveAttribute("data-theme", "dark");
+  });
 });
 
-it("shows active and past sections, a today marker, and hover details", async () => {
+it("shows active and past sections, a today marker, and hover click hints", async () => {
   const user = userEvent.setup();
 
   render(
     <TimelineBrowser
       conferences={conferences}
       now={new Date("2026-03-26T00:00:00Z")}
+      viewerTimeZone="UTC"
     />,
   );
 
@@ -47,9 +54,23 @@ it("shows active and past sections, a today marker, and hover details", async ()
   expect(screen.queryByText("NeurIPS")).toBeInTheDocument();
   expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
 
-  await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
+  const trigger = screen.getByTestId("conference-trigger-colm-2026");
+  await user.hover(trigger);
 
-  expect(screen.getByText(conferences[0]!.location)).toBeInTheDocument();
+  expect(trigger).toHaveClass("conference-trigger--hovered");
+  expect(screen.queryByText(conferences[0]!.location)).not.toBeInTheDocument();
+});
+
+it("shows the current viewer-local timestamp beside the today marker", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+      viewerTimeZone="Asia/Shanghai"
+    />,
+  );
+
+  expect(screen.getByTestId("today-label")).toHaveTextContent("Mar 26 08:00 GMT+8");
 });
 
 it("shows Abstract milestones by default when they differ from the full paper deadline", () => {
@@ -79,6 +100,43 @@ it("shows inline conference details when a conference title is clicked", async (
     "aria-hidden",
     "false",
   );
+});
+
+it("keeps the sticky controls bar above expanded timeline details", async () => {
+  const user = userEvent.setup();
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+
+  const controlsBar = screen
+    .getByPlaceholderText(/search conferences/i)
+    .closest(".sticky");
+
+  expect(controlsBar).toHaveClass("top-0");
+  expect(controlsBar).toHaveClass("z-40");
+  expect(screen.getByTestId("conference-detail-meta-colm-2026")).toHaveClass(
+    "z-10",
+  );
+});
+
+it("uses a horizontally scrollable surface without creating an inner vertical scroll area", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  const surface = screen.getByTestId("timeline-surface");
+
+  expect(surface).toHaveClass("overflow-x-auto");
+  expect(surface).toHaveClass("overflow-y-hidden");
 });
 
 it("shows the clear action for non-default preset and milestone filters", async () => {

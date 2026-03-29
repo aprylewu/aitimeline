@@ -9,7 +9,11 @@ import {
   alignVisibleRangeToMonthBounds,
   getDefaultVisibleRange,
 } from "@/lib/timeline/date-range";
-import { getMilestoneRange } from "@/lib/timeline/milestone-time";
+import {
+  getMilestoneRange,
+  resolveViewerTimeZone,
+  shiftDateByMonthsInTimeZone,
+} from "@/lib/timeline/milestone-time";
 import { organizeConferenceSections } from "@/lib/timeline/sections";
 import type {
   Conference,
@@ -20,6 +24,7 @@ import type {
 interface TimelineBrowserProps {
   conferences: Conference[];
   now: Date;
+  viewerTimeZone?: string;
 }
 
 interface SurfaceDragState {
@@ -58,14 +63,41 @@ function rangesMatch(
   );
 }
 
-function getPresetRange(now: Date, preset: Exclude<RangePreset, "All">) {
+function getPresetRange(
+  now: Date,
+  preset: Exclude<RangePreset, "All">,
+  viewerTimeZone?: string,
+) {
   const months = Number.parseInt(preset, 10);
   const monthsBack = Math.max(1, Math.floor(months / 3));
 
-  return alignVisibleRangeToMonthBounds({
-    start: subMonths(now, monthsBack),
-    end: addMonths(now, months - monthsBack),
-  });
+  if (viewerTimeZone) {
+    const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
+
+    return alignVisibleRangeToMonthBounds(
+      {
+        start: shiftDateByMonthsInTimeZone(
+          now,
+          -monthsBack,
+          resolvedViewerTimeZone,
+        ),
+        end: shiftDateByMonthsInTimeZone(
+          now,
+          months - monthsBack,
+          resolvedViewerTimeZone,
+        ),
+      },
+      resolvedViewerTimeZone,
+    );
+  }
+
+  return alignVisibleRangeToMonthBounds(
+    {
+      start: subMonths(now, monthsBack),
+      end: addMonths(now, months - monthsBack),
+    },
+    viewerTimeZone,
+  );
 }
 
 function toggleSetValue<T>(current: Set<T>, value: T) {
@@ -80,12 +112,12 @@ function toggleSetValue<T>(current: Set<T>, value: T) {
   return next;
 }
 
-function getAllRange(conferences: Conference[]) {
+function getAllRange(conferences: Conference[], viewerTimeZone?: string) {
   const points = conferences
     .flatMap((conference) =>
       conference.milestones.flatMap((milestone) => [
-        getMilestoneRange(milestone).start,
-        getMilestoneRange(milestone).end,
+        getMilestoneRange(milestone, viewerTimeZone).start,
+        getMilestoneRange(milestone, viewerTimeZone).end,
       ]),
     )
     .filter((point) => Number.isFinite(point.getTime()));
@@ -94,10 +126,13 @@ function getAllRange(conferences: Conference[]) {
     return null;
   }
 
-  return alignVisibleRangeToMonthBounds({
-    start: new Date(Math.min(...points.map((point) => point.getTime()))),
-    end: new Date(Math.max(...points.map((point) => point.getTime()))),
-  });
+  return alignVisibleRangeToMonthBounds(
+    {
+      start: new Date(Math.min(...points.map((point) => point.getTime()))),
+      end: new Date(Math.max(...points.map((point) => point.getTime()))),
+    },
+    viewerTimeZone,
+  );
 }
 
 function clampFocusRangeToTimeline(
@@ -185,7 +220,15 @@ function getFocusScrollLeft(args: {
   return Math.min(contentWidth - viewportWidth, rawScrollLeft);
 }
 
-export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
+export function TimelineBrowser({
+  conferences,
+  now,
+  viewerTimeZone,
+}: TimelineBrowserProps) {
+  const resolvedViewerTimeZone = useMemo(
+    () => resolveViewerTimeZone(viewerTimeZone),
+    [viewerTimeZone],
+  );
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
   const [isDraggingSurface, setIsDraggingSurface] = useState(false);
@@ -193,7 +236,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     () => new Set(),
   );
   const [visibleRange, setVisibleRange] = useState(() =>
-    getDefaultVisibleRange(now),
+    getDefaultVisibleRange(now, resolvedViewerTimeZone),
   );
   const [visibleMilestoneTypes, setVisibleMilestoneTypes] = useState(
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
@@ -201,15 +244,24 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
   const surfaceDragStateRef = useRef<SurfaceDragState | null>(null);
   const timelineSurfaceRef = useRef<HTMLDivElement | null>(null);
   const [timelineSurfaceWidth, setTimelineSurfaceWidth] = useState(0);
-  const defaultVisibleRange = useMemo(() => getDefaultVisibleRange(now), [now]);
+  const defaultVisibleRange = useMemo(
+    () => getDefaultVisibleRange(now, resolvedViewerTimeZone),
+    [now, resolvedViewerTimeZone],
+  );
   const presetRanges = useMemo(
     () =>
       Object.fromEntries(
-        PRESET_OPTIONS.map((preset) => [preset, getPresetRange(now, preset)]),
+        PRESET_OPTIONS.map((preset) => [
+          preset,
+          getPresetRange(now, preset, resolvedViewerTimeZone),
+        ]),
       ) as Record<(typeof PRESET_OPTIONS)[number], { start: Date; end: Date }>,
-    [now],
+    [now, resolvedViewerTimeZone],
   );
-  const allRange = useMemo(() => getAllRange(conferences), [conferences]);
+  const allRange = useMemo(
+    () => getAllRange(conferences, resolvedViewerTimeZone),
+    [conferences, resolvedViewerTimeZone],
+  );
   const timelineRange = allRange ?? defaultVisibleRange;
   const scrollFocusRange = useMemo(
     () => clampFocusRangeToTimeline(visibleRange, timelineRange),
@@ -329,6 +381,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
         categories,
         visibleMilestoneTypes,
         visibleRange,
+        viewerTimeZone: resolvedViewerTimeZone,
         now,
       }),
     [
@@ -336,6 +389,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
       conferences,
       now,
       query,
+      resolvedViewerTimeZone,
       visibleRange,
       visibleMilestoneTypes,
     ],
@@ -429,6 +483,37 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
     timelineSurfaceWidth,
   ]);
 
+  useEffect(() => {
+    const rootElement = document.documentElement;
+    const bodyElement = document.body;
+    const previousRootTheme = rootElement.getAttribute("data-theme");
+    const previousBodyTheme = bodyElement.getAttribute("data-theme");
+    const previousRootColorScheme = rootElement.style.colorScheme;
+    const previousBodyColorScheme = bodyElement.style.colorScheme;
+
+    rootElement.setAttribute("data-theme", theme);
+    bodyElement.setAttribute("data-theme", theme);
+    rootElement.style.colorScheme = theme;
+    bodyElement.style.colorScheme = theme;
+
+    return () => {
+      if (previousRootTheme) {
+        rootElement.setAttribute("data-theme", previousRootTheme);
+      } else {
+        rootElement.removeAttribute("data-theme");
+      }
+
+      if (previousBodyTheme) {
+        bodyElement.setAttribute("data-theme", previousBodyTheme);
+      } else {
+        bodyElement.removeAttribute("data-theme");
+      }
+
+      rootElement.style.colorScheme = previousRootColorScheme;
+      bodyElement.style.colorScheme = previousBodyColorScheme;
+    };
+  }, [theme]);
+
   return (
     <main
       data-testid="timeline-browser"
@@ -507,7 +592,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
           onPointerCancel={(event) =>
             endSurfaceDrag(event.currentTarget, event.pointerId)
           }
-          className={`timeline-shell timeline-shell-draggable overflow-x-auto rounded-xl border border-[var(--panel-border)] ${
+          className={`timeline-shell timeline-shell-draggable overflow-x-auto overflow-y-hidden rounded-xl border border-[var(--panel-border)] ${
             isDraggingSurface ? "timeline-shell-dragging" : ""
           }`}
         >
@@ -517,6 +602,7 @@ export function TimelineBrowser({ conferences, now }: TimelineBrowserProps) {
             visibleRange={timelineRange}
             width={timelineContentWidth}
             now={now}
+            viewerTimeZone={resolvedViewerTimeZone}
           />
         </div>
         {visibleConferenceCount === 0 ? (

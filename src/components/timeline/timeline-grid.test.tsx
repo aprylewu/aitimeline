@@ -1,9 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { conferences } from "@/data/conferences";
 import { TimelineGrid } from "./timeline-grid";
 
-const colmConference = conferences.find((conference) => conference.id === "colm-2026")!;
+const aclConference = conferences.find((conference) => conference.id === "acl-2026")!;
 const icmlConference = conferences.find((conference) => conference.id === "icml-2026")!;
 
 function renderTimelineGrid(visibleConferences = conferences.slice(0, 1)) {
@@ -90,7 +90,7 @@ it("renders highlighted primary milestones and shows a tooltip on hover", async 
   );
 });
 
-it("renders a separate today label and an animated conference detail card", async () => {
+it("renders a separate today label and only uses hover as a click hint on conference triggers", async () => {
   const user = userEvent.setup();
 
   render(
@@ -107,35 +107,89 @@ it("renders a separate today label and an animated conference detail card", asyn
         end: new Date("2026-12-31T00:00:00Z"),
       }}
       now={new Date("2026-03-26T00:00:00Z")}
+      viewerTimeZone="Asia/Shanghai"
     />,
   );
 
-  expect(screen.getByTestId("today-label")).toHaveTextContent("Today");
+  expect(screen.getByTestId("today-label")).toHaveTextContent("Mar 26 08:00 GMT+8");
 
-  await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
+  const trigger = screen.getByTestId("conference-trigger-colm-2026");
+  expect(within(trigger).getByText("CoLM")).toHaveClass("text-[11px]");
+  expect(within(trigger).getByText("CoLM")).toHaveClass("md:text-[12px]");
+  expect(within(trigger).getByText("2026")).toHaveClass("text-[9px]");
+  expect(within(trigger).getByText(/^AI$/i)).toBeInTheDocument();
+  expect(
+    within(trigger).queryByText(/CORE Emerging/i),
+  ).not.toBeInTheDocument();
+  expect(
+    within(trigger).getByTestId("conference-trigger-arrow-colm-2026"),
+  ).toHaveClass("rotate-0");
 
+  await user.hover(trigger);
+
+  expect(trigger).toHaveClass("conference-trigger--hovered");
+  expect(trigger).not.toHaveClass("-translate-y-px");
+  expect(trigger).not.toHaveClass("shadow-sm");
   expect(
-    screen.getByTestId("conference-detail-card-colm-2026"),
-  ).toHaveClass("conference-detail-card");
-  expect(
-    screen.getByTestId("conference-detail-card-colm-2026"),
-  ).toHaveClass("timeline-floating-surface");
+    screen.queryByTestId("conference-detail-card-colm-2026"),
+  ).not.toBeInTheDocument();
 });
 
-it("clicking a conference trigger expands an inline detail row", async () => {
+it("clicking a conference trigger restores the older compact inline detail strip", async () => {
   const user = userEvent.setup();
 
-  renderTimelineGrid([colmConference]);
+  renderTimelineGrid([aclConference]);
 
-  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+  const trigger = screen.getByTestId("conference-trigger-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
 
-  expect(screen.getByTestId("conference-detail-row-colm-2026")).toHaveAttribute(
-    "aria-hidden",
-    "false",
-  );
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(trigger).toHaveClass("conference-trigger--collapsed");
+  expect(detailRow).toHaveAttribute("aria-hidden", "true");
+
+  await user.click(trigger);
+
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+  expect(trigger).toHaveClass("conference-trigger--expanded");
+  expect(trigger).not.toHaveClass("shadow-sm");
+  expect(detailRow).toHaveAttribute("aria-hidden", "false");
+  expect(detailRow).toHaveClass("relative");
+  expect(detailRow).toHaveClass("z-10");
+  expect(
+    within(trigger).getByTestId("conference-trigger-arrow-acl-2026"),
+  ).toHaveClass("rotate-90");
+  expect(within(detailRow).queryByText(/^ACL$/)).not.toBeInTheDocument();
+  expect(within(detailRow).queryByText(/^2026$/)).not.toBeInTheDocument();
+  expect(
+    within(detailRow).getByText(
+      /Annual Meeting of the Association for Computational Linguistics/i,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(detailRow).getByText(/Jul 26-31, 2026, San Diego, United States/i),
+  ).toBeInTheDocument();
+  expect(detailRow).toHaveTextContent(/ccf\s+A/i);
+  expect(detailRow).toHaveTextContent(/core\s+A\*/i);
+  expect(detailRow).toHaveTextContent(/thcpl\s+A/i);
+  expect(within(detailRow).getByText(/^AI$/i)).toBeInTheDocument();
+  expect(
+    within(detailRow).getByTestId("conference-detail-title-acl-2026"),
+  ).toHaveClass("text-[13px]");
+  expect(
+    within(detailRow).getByTestId("conference-detail-summary-acl-2026"),
+  ).toHaveClass("text-[12px]");
+  expect(
+    within(detailRow).getByRole("link", { name: /call for papers/i }),
+  ).toHaveClass("rounded-full");
+  expect(
+    within(detailRow).getByRole("link", { name: /call for papers/i }),
+  ).toHaveClass("border");
+  expect(
+    within(detailRow).getByRole("link", { name: /call for papers/i }),
+  ).toHaveAttribute("href", expect.stringContaining("aclweb.org"));
 });
 
-it("keeps the sticky meta cell as the positioning context for the detail card", async () => {
+it("keeps the sticky meta cell as the positioning context for the trigger hover animation", async () => {
   const user = userEvent.setup();
 
   render(
@@ -165,7 +219,7 @@ it("keeps the sticky meta cell as the positioning context for the detail card", 
   expect(metaCell).toHaveClass("relative");
 });
 
-it("raises the sticky meta cell above timeline markers while the detail card is open", async () => {
+it("raises the trigger into the hovered guidance state without opening a floating detail card", async () => {
   const user = userEvent.setup();
 
   render(
@@ -187,49 +241,52 @@ it("raises the sticky meta cell above timeline markers while the detail card is 
 
   await user.hover(screen.getByTestId("conference-trigger-colm-2026"));
 
-  const metaCell = screen
-    .getByTestId("conference-trigger-colm-2026")
-    .closest("div");
+  const trigger = screen.getByTestId("conference-trigger-colm-2026");
 
-  expect(metaCell).toHaveClass("z-40");
+  expect(trigger).toHaveClass("conference-trigger--hovered");
   expect(
-    screen.getByTestId("conference-detail-card-colm-2026"),
-  ).toHaveClass("z-50");
+    screen.queryByTestId("conference-detail-card-colm-2026"),
+  ).not.toBeInTheDocument();
 });
 
-it("keeps the conference detail card open while focus moves into its link", async () => {
+it("keeps expanded conference details fixed while the timeline scrolls independently", async () => {
   const user = userEvent.setup();
 
-  render(
-    <TimelineGrid
-      sections={[
-        {
-          id: "active",
-          label: "Active",
-          conferences: conferences.slice(0, 1),
-        },
-      ]}
-      visibleRange={{
-        start: new Date("2026-01-01T00:00:00Z"),
-        end: new Date("2026-12-31T00:00:00Z"),
-      }}
-      now={new Date("2026-03-26T00:00:00Z")}
-    />,
-  );
+  renderTimelineGrid([aclConference]);
 
-  await user.click(screen.getByTestId("conference-trigger-colm-2026"));
+  await user.click(screen.getByTestId("conference-trigger-acl-2026"));
 
-  const detailLink = screen.getByRole("link", { name: conferences[0]!.shortName });
-  expect(
-    screen.getByTestId("conference-detail-card-colm-2026"),
-  ).toBeInTheDocument();
+  const detailMetaCell = screen.getByTestId("conference-detail-meta-acl-2026");
+  const detailPanel = screen.getByTestId("conference-detail-panel-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
 
-  await user.tab();
+  expect(detailMetaCell).toHaveClass("sticky");
+  expect(detailMetaCell).toHaveClass("left-0");
+  expect(detailMetaCell).toHaveClass("z-10");
+  expect(detailPanel).toHaveClass("sticky");
+  expect(detailPanel).toHaveClass("left-[196px]");
+  expect(detailRow).not.toHaveClass("col-span-2");
+});
 
-  expect(detailLink).toHaveFocus();
-  expect(
-    screen.getByTestId("conference-detail-card-colm-2026"),
-  ).toBeInTheDocument();
+it("animates detail expansion with an explicit row height", async () => {
+  const user = userEvent.setup();
+
+  renderTimelineGrid([aclConference]);
+
+  const trigger = screen.getByTestId("conference-trigger-acl-2026");
+  const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
+  const detailContent = screen.getByTestId("conference-detail-content-acl-2026");
+
+  Object.defineProperty(detailContent, "scrollHeight", {
+    configurable: true,
+    value: 188,
+  });
+
+  expect(detailRow.style.height).toBe("0px");
+
+  await user.click(trigger);
+
+  expect(detailRow.style.height).toBe("188px");
 });
 
 it("renders a single continuous today line overlay", () => {
@@ -345,6 +402,29 @@ it("anchors the first and last month labels inside the visible axis", () => {
   });
 });
 
+it("derives month labels from the viewer timezone instead of raw UTC month boundaries", () => {
+  render(
+    <TimelineGrid
+      sections={[
+        {
+          id: "active",
+          label: "Active",
+          conferences: conferences.slice(0, 1),
+        },
+      ]}
+      visibleRange={{
+        start: new Date("2025-12-31T16:00:00.000Z"),
+        end: new Date("2026-03-31T15:59:59.999Z"),
+      }}
+      now={new Date("2026-03-26T00:00:00Z")}
+      viewerTimeZone="Asia/Shanghai"
+    />,
+  );
+
+  expect(screen.getByTestId("axis-label-0")).toHaveTextContent("Jan 2026");
+  expect(screen.queryByText("Dec 2025")).not.toBeInTheDocument();
+});
+
 it("does not render milestone markers that fall outside the visible range", () => {
   render(
     <TimelineGrid
@@ -389,9 +469,16 @@ it("does not fade the entire non-primary marker button", async () => {
 
   const secondaryMarker = screen.getByLabelText("Author feedback closes");
   expect(secondaryMarker).toHaveAttribute("data-primary-path", "false");
+  expect(secondaryMarker).toHaveClass("h-8");
+  expect(secondaryMarker).toHaveClass("w-8");
+
+  const secondaryMarkerSurface = secondaryMarker.firstElementChild as HTMLElement;
+  expect(secondaryMarkerSurface).toHaveClass("h-3.5");
+  expect(secondaryMarkerSurface).toHaveClass("w-3.5");
 
   await user.hover(secondaryMarker);
 
   expect(secondaryMarker).not.toHaveClass("opacity-50");
   expect(secondaryMarker).toHaveClass("z-30");
+  expect(secondaryMarkerSurface.firstElementChild).toHaveClass("scale-110");
 });

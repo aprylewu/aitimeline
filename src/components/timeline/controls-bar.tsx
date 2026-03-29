@@ -214,7 +214,7 @@ export function ControlsBar({
   ).length;
 
   return (
-    <div className="sticky top-0 z-20 border-b border-[var(--panel-border)] bg-[var(--controls-bg)] px-4 py-3 md:px-6">
+    <div className="sticky top-0 z-40 border-b border-[var(--panel-border)] bg-[var(--controls-bg)] px-4 py-3 md:px-6">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-2.5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">

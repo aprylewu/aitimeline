@@ -1,21 +1,19 @@
 "use client";
 
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FocusEvent as ReactFocusEvent } from "react";
-import {
-  eachMonthOfInterval,
-  format,
-  isAfter,
-  isBefore,
-  parseISO,
-  startOfMonth,
-} from "date-fns";
+import type { CSSProperties } from "react";
+import { format, isAfter, isBefore, parseISO } from "date-fns";
 import { ConferenceMetaColumn } from "./conference-meta-column";
 import { MilestoneTooltip } from "./milestone-tooltip";
 import { getPrimaryPathTypes } from "@/lib/timeline/key-path";
 import {
+  addMonthsInTimeZone,
+  formatCurrentTimeLabel,
+  getMonthKey,
   getMilestoneInstant,
   getMilestoneRange,
+  getZonedMonthStart,
+  resolveViewerTimeZone,
 } from "@/lib/timeline/milestone-time";
 import { getPositionPercent } from "@/lib/timeline/positioning";
 import type { Conference, Milestone, MilestoneType } from "@/types/conference";
@@ -261,11 +259,41 @@ function getRenderedMilestones(args: {
   );
 }
 
-function getTickDates(range: { start: Date; end: Date }) {
-  return eachMonthOfInterval({
-    start: startOfMonth(range.start),
-    end: range.end,
-  });
+function getTickDates(
+  range: { start: Date; end: Date },
+  viewerTimeZone?: string,
+) {
+  const resolvedViewerTimeZone = resolveViewerTimeZone(viewerTimeZone);
+  const ticks: Date[] = [];
+  const lastTick = getZonedMonthStart(range.end, resolvedViewerTimeZone);
+  let currentTick = getZonedMonthStart(range.start, resolvedViewerTimeZone);
+
+  while (currentTick.getTime() <= lastTick.getTime()) {
+    ticks.push(currentTick);
+
+    if (
+      getMonthKey(currentTick, resolvedViewerTimeZone) ===
+      getMonthKey(lastTick, resolvedViewerTimeZone)
+    ) {
+      break;
+    }
+
+    currentTick = addMonthsInTimeZone(
+      currentTick,
+      1,
+      resolvedViewerTimeZone,
+    );
+  }
+
+  return ticks;
+}
+
+function formatTickLabel(date: Date, viewerTimeZone?: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: resolveViewerTimeZone(viewerTimeZone),
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
 function getTickLabelTransform(index: number, tickCount: number) {
@@ -443,64 +471,89 @@ function getRankingEntries(conference: Conference) {
 function ConferenceDetailStrip({
   conference,
   viewerTimeZone,
+  expanded,
 }: {
   conference: Conference;
   viewerTimeZone?: string;
+  expanded: boolean;
 }) {
   const rankingEntries = getRankingEntries(conference);
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-[var(--panel-border)] bg-[var(--surface-bg)] px-4 py-3 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+    <div className="conference-inline-strip flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span
+            data-testid={`conference-detail-title-${conference.id}`}
+            className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
+          >
             {conference.title}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+          </span>
+          <span
+            data-testid={`conference-detail-summary-${conference.id}`}
+            className="text-[12px] leading-5 text-[var(--text-muted)]"
+          >
             {getConferenceSummary(conference, viewerTimeZone)}
-          </p>
+          </span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        {conference.cfpUrl ? (
           <a
-            href={conference.website}
+            href={conference.cfpUrl}
             target="_blank"
             rel="noreferrer noopener"
-            className="rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-1 text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)]"
+            tabIndex={expanded ? 0 : -1}
+            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
           >
-            Website
+            Call For Papers
           </a>
-          {conference.cfpUrl ? (
-            <a
-              href={conference.cfpUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-1 text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)]"
-            >
-              Call for papers
-            </a>
-          ) : null}
-        </div>
+        ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase text-[var(--text-primary)]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
+        {rankingEntries.length > 0 ? (
+          rankingEntries.map(([key, value]) => (
+            <span
+              key={`${conference.id}-${key}`}
+              className="font-medium text-[var(--text-primary)]"
+            >
+              <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                {key}
+              </span>{" "}
+              {value}
+            </span>
+          ))
+        ) : (
+          <span className="font-medium text-[var(--text-muted)]">Unranked</span>
+        )}
+        <span className="font-medium uppercase tracking-[0.08em]">
           {conference.category}
         </span>
-        {rankingEntries.map(([key, value]) => (
-          <span
-            key={`${conference.id}-${key}`}
-            className="rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase text-[var(--text-primary)]"
-          >
-            {key} {value}
-          </span>
-        ))}
       </div>
       {conference.detailNote ? (
-        <p className="text-xs leading-5 text-[var(--text-muted)]">
+        <p
+          data-testid={`conference-detail-note-${conference.id}`}
+          className="rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--text-muted)]"
+        >
           {conference.detailNote}
         </p>
       ) : null}
     </div>
   );
+}
+
+function getDetailRowStateClass(isExpanded: boolean) {
+  return isExpanded
+    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60"
+    : "pointer-events-none border-transparent bg-transparent";
+}
+
+function getDetailPanelClass(isExpanded: boolean) {
+  return isExpanded ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0";
+}
+
+function getDetailMetaCellClass(isExpanded: boolean) {
+  return isExpanded
+    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60 opacity-100"
+    : "pointer-events-none border-transparent bg-transparent opacity-0";
 }
 
 function ConferenceDetailRow({
@@ -512,18 +565,63 @@ function ConferenceDetailRow({
   expanded: boolean;
   viewerTimeZone?: string;
 }) {
+  const detailRowRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [contentHeight, setContentHeight] = useState(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const hasInitializedHeightRef = useRef(false);
 
   useEffect(() => {
+    const detailRowNode = detailRowRef.current;
     const contentNode = contentRef.current;
 
-    if (!contentNode) {
+    if (!detailRowNode || !contentNode) {
+      return;
+    }
+
+    const measuredHeight = contentNode.scrollHeight;
+
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    if (expanded) {
+      animationFrameRef.current = window.requestAnimationFrame(() => {
+        detailRowNode.style.height = `${contentNode.scrollHeight}px`;
+        animationFrameRef.current = null;
+      });
+
+      return;
+    }
+
+    detailRowNode.style.height = `${measuredHeight}px`;
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      detailRowNode.style.height = "0px";
+      animationFrameRef.current = null;
+    });
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded) {
+      return;
+    }
+
+    const detailRowNode = detailRowRef.current;
+    const contentNode = contentRef.current;
+
+    if (!detailRowNode || !contentNode) {
       return;
     }
 
     const updateHeight = () => {
-      setContentHeight(contentNode.scrollHeight);
+      detailRowNode.style.height = `${contentNode.scrollHeight}px`;
     };
 
     updateHeight();
@@ -545,45 +643,51 @@ function ConferenceDetailRow({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [conference.id, expanded]);
+  }, [expanded]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   return (
     <>
       <div
         data-testid={`conference-detail-meta-${conference.id}`}
         aria-hidden={!expanded}
-        className={`timeline-meta-cell sticky left-0 z-20 transition-[opacity,background-color,border-color] duration-200 ${
-          expanded
-            ? "border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] opacity-100"
-            : "pointer-events-none h-0 border-b-0 bg-transparent p-0 opacity-0"
-        }`}
+        className={`timeline-meta-cell sticky left-0 z-10 border-b transition-[opacity,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailMetaCellClass(expanded)}`}
       />
       <div
         id={`conference-detail-row-${conference.id}`}
         data-testid={`conference-detail-row-${conference.id}`}
+        data-expanded={String(expanded)}
         aria-hidden={!expanded}
-        className={`conference-inline-row overflow-hidden transition-[max-height,opacity,background-color,border-color] duration-200 ${
-          expanded
-            ? "border-b border-[var(--panel-border)] bg-[var(--surface-bg)]/60 opacity-100"
-            : "border-b-0 bg-transparent opacity-0"
-        }`}
-        style={{
-          maxHeight: expanded ? `${Math.max(contentHeight, 320)}px` : "0px",
+        ref={(node) => {
+          detailRowRef.current = node;
+
+          if (node && !hasInitializedHeightRef.current && !expanded) {
+            node.style.height = "0px";
+            hasInitializedHeightRef.current = true;
+          }
         }}
+        className={`conference-inline-row relative z-10 border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
       >
         <div
           ref={contentRef}
           data-testid={`conference-detail-content-${conference.id}`}
-          className="px-4 py-3"
+          className="px-4 py-2.5"
         >
           <div
             data-testid={`conference-detail-panel-${conference.id}`}
-            className="sticky max-w-[44rem]"
-            style={{ left: "calc(var(--timeline-meta-width) + 1rem)" }}
+            className={`conference-inline-row-inner sticky left-[196px] max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
           >
             <ConferenceDetailStrip
               conference={conference}
               viewerTimeZone={viewerTimeZone}
+              expanded={expanded}
             />
           </div>
         </div>
@@ -597,7 +701,9 @@ interface TimelineMarkerProps {
   isPrimaryPath: boolean;
   left: number;
   milestone: Milestone;
+  now: Date;
   tone: TimelineTone;
+  viewerTimeZone?: string;
 }
 
 const TimelineMarker = memo(function TimelineMarker({
@@ -605,7 +711,9 @@ const TimelineMarker = memo(function TimelineMarker({
   isPrimaryPath,
   left,
   milestone,
+  now,
   tone,
+  viewerTimeZone,
 }: TimelineMarkerProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipAnchor, setTooltipAnchor] = useState<{
@@ -614,6 +722,7 @@ const TimelineMarker = memo(function TimelineMarker({
     width: number;
   } | null>(null);
   const markerRef = useRef<HTMLButtonElement>(null);
+  const markerSurfaceRef = useRef<HTMLSpanElement>(null);
   const markerStyle = useMemo(
     () =>
       ({
@@ -629,7 +738,7 @@ const TimelineMarker = memo(function TimelineMarker({
     }
 
     const syncTooltipAnchor = () => {
-      const rect = markerRef.current?.getBoundingClientRect();
+      const rect = markerSurfaceRef.current?.getBoundingClientRect();
 
       if (!rect) {
         return;
@@ -663,25 +772,33 @@ const TimelineMarker = memo(function TimelineMarker({
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
       onBlur={() => setIsHovered(false)}
-      className={`timeline-marker absolute rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] ${
+      className={`timeline-marker absolute top-[16px] flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full ${
         isHovered ? "z-30" : ""
-      } ${
-        isPrimaryPath
-          ? "top-[22px] h-5 w-5 -translate-x-1/2"
-          : "top-[25px] h-3.5 w-3.5 -translate-x-1/2"
       }`}
       style={markerStyle}
     >
       <span
-        className={`absolute rounded-full ${getToneClass(tone, "marker")} ${
-          isPrimaryPath ? "inset-[3px]" : "inset-[2px] opacity-50"
+        ref={markerSurfaceRef}
+        className={`timeline-marker-surface absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--panel-border)] bg-[var(--surface-bg)] ${
+          isPrimaryPath ? "h-5 w-5" : "h-3.5 w-3.5"
         }`}
-      />
+      >
+        <span
+          className={`timeline-marker-dot absolute rounded-full ${getToneClass(
+            tone,
+            "marker",
+          )} ${
+            isPrimaryPath ? "inset-[3px]" : "inset-[2px] opacity-50"
+          } ${isHovered ? "scale-110" : "scale-100"}`}
+        />
+      </span>
       {isHovered && tooltipAnchor ? (
         <MilestoneTooltip
           anchorRect={tooltipAnchor}
           conference={conference}
           milestone={milestone}
+          now={now}
+          viewerTimeZone={viewerTimeZone}
         />
       ) : null}
     </button>
@@ -690,6 +807,7 @@ const TimelineMarker = memo(function TimelineMarker({
 
 interface TimelineConferenceRowProps {
   conference: Conference;
+  now: Date;
   visibleMilestoneTypes: Set<MilestoneType>;
   visibleRange: {
     start: Date;
@@ -700,13 +818,18 @@ interface TimelineConferenceRowProps {
 
 const TimelineConferenceRow = memo(function TimelineConferenceRow({
   conference,
+  now,
   visibleMilestoneTypes,
   visibleRange,
   viewerTimeZone,
 }: TimelineConferenceRowProps) {
-  const [showConferenceDetails, setShowConferenceDetails] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const detailCardId = `${conference.id}-detail-card`;
+  const [isTriggerHovered, setIsTriggerHovered] = useState(false);
+  const [hoverCooldown, setHoverCooldown] = useState(false);
+  const hoverRestoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const primaryPathTypes = useMemo(
     () => new Set(getPrimaryPathTypes(conference.milestones)),
     [conference.milestones],
@@ -758,48 +881,77 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
     };
   }, [timelineSpan, viewerTimeZone, visibleRange]);
 
-  function handleMetaBlur(event: ReactFocusEvent<HTMLDivElement>) {
-    const nextTarget = event.relatedTarget;
-
-    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
-      return;
-    }
-
-    setShowConferenceDetails(false);
-  }
+  useEffect(() => {
+    return () => {
+      if (hoverRestoreTimeoutRef.current) {
+        clearTimeout(hoverRestoreTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Fragment>
       <div
-        className={`timeline-meta-cell relative sticky left-0 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-2.5 py-2 md:px-3.5 ${
-          showConferenceDetails ? "z-40" : "z-10"
-        }`}
-        onMouseEnter={() => setShowConferenceDetails(true)}
-        onMouseLeave={() => setShowConferenceDetails(false)}
-        onFocusCapture={() => setShowConferenceDetails(true)}
-        onBlurCapture={handleMetaBlur}
+        className="timeline-meta-cell relative sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-2.5 py-2 md:px-3.5"
       >
         <button
+          ref={triggerRef}
           type="button"
           data-testid={`conference-trigger-${conference.id}`}
           aria-controls={`conference-detail-row-${conference.id}`}
           aria-expanded={isExpanded}
-          onClick={() => setIsExpanded((current) => !current)}
-          className="conference-trigger -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-center rounded-lg px-2 py-1.5 text-left"
+          onMouseEnter={() => {
+            if (!hoverCooldown) {
+              setIsTriggerHovered(true);
+            }
+          }}
+          onMouseLeave={() => {
+            setIsTriggerHovered(false);
+          }}
+          onFocus={() => {
+            if (!hoverCooldown) {
+              setIsTriggerHovered(true);
+            }
+          }}
+          onBlur={() => {
+            setIsTriggerHovered(false);
+          }}
+          onClick={() => {
+            setIsExpanded((current) => !current);
+            setIsTriggerHovered(false);
+            setHoverCooldown(true);
+
+            if (hoverRestoreTimeoutRef.current) {
+              clearTimeout(hoverRestoreTimeoutRef.current);
+            }
+
+            hoverRestoreTimeoutRef.current = setTimeout(() => {
+              setHoverCooldown(false);
+
+              if (triggerRef.current?.matches(":hover")) {
+                setIsTriggerHovered(true);
+              }
+
+              hoverRestoreTimeoutRef.current = null;
+            }, 180);
+          }}
+          className={`conference-trigger ${
+            isExpanded
+              ? "conference-trigger--expanded"
+              : "conference-trigger--collapsed"
+          } ${
+            hoverCooldown ? "conference-trigger--hover-cooldown" : ""
+          } ${
+            isTriggerHovered ? "conference-trigger--hovered" : ""
+          } -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-center rounded-lg border border-transparent px-2 py-1.5 text-left outline-none transition-[border-color,background-color,box-shadow,color] duration-150`}
         >
-          <ConferenceMetaColumn conference={conference} compact />
+          <ConferenceMetaColumn
+            conference={conference}
+            compact
+            expanded={isExpanded}
+            hovered={isTriggerHovered}
+          />
         </button>
-        {showConferenceDetails ? (
-          <div
-            id={detailCardId}
-            role="group"
-            aria-label={`${conference.shortName} details`}
-            data-testid={`conference-detail-card-${conference.id}`}
-            className="conference-detail-card timeline-floating-surface absolute top-1/2 left-2 z-50 w-[min(20rem,calc(100vw-2.5rem))] rounded-xl border border-[var(--panel-border)] p-3.5 shadow-lg md:left-3"
-          >
-            <ConferenceMetaColumn conference={conference} />
-          </div>
-        ) : null}
       </div>
       <div className="timeline-row relative border-b border-[var(--panel-border)] px-4">
         <div className="timeline-row-grid pointer-events-none absolute inset-0" />
@@ -868,7 +1020,9 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
               isPrimaryPath={primaryPathTypes.has(milestone.type)}
               left={getPositionPercent(milestoneInstant, visibleRange)}
               milestone={milestone}
+              now={now}
               tone={getMilestoneTone(milestone.type)}
+              viewerTimeZone={viewerTimeZone}
             />
           );
         })}
@@ -890,7 +1044,10 @@ export const TimelineGrid = memo(function TimelineGrid({
   now,
   viewerTimeZone,
 }: TimelineGridProps) {
-  const ticks = useMemo(() => getTickDates(visibleRange), [visibleRange]);
+  const ticks = useMemo(
+    () => getTickDates(visibleRange, viewerTimeZone),
+    [viewerTimeZone, visibleRange],
+  );
   const tickPositions = useMemo(
     () => ticks.map((tick) => getPositionPercent(tick, visibleRange)),
     [ticks, visibleRange],
@@ -908,6 +1065,10 @@ export const TimelineGrid = memo(function TimelineGrid({
   const todayLeft = useMemo(
     () => getPositionPercent(now, visibleRange),
     [now, visibleRange],
+  );
+  const todayLabel = useMemo(
+    () => formatCurrentTimeLabel(now, viewerTimeZone),
+    [now, viewerTimeZone],
   );
 
   return (
@@ -938,7 +1099,7 @@ export const TimelineGrid = memo(function TimelineGrid({
                   className="timeline-axis-label font-mono text-[10px] font-medium text-[var(--text-muted)] md:text-[11px]"
                   style={{ transform: getTickLabelTransform(index, ticks.length) }}
                 >
-                  {format(tick, "MMM yyyy")}
+                  {formatTickLabel(tick, viewerTimeZone)}
                 </div>
               </div>
             ))}
@@ -959,6 +1120,7 @@ export const TimelineGrid = memo(function TimelineGrid({
                 <TimelineConferenceRow
                   key={conference.id}
                   conference={conference}
+                  now={now}
                   visibleMilestoneTypes={renderedMilestoneTypes}
                   visibleRange={visibleRange}
                   viewerTimeZone={viewerTimeZone}
@@ -988,7 +1150,7 @@ export const TimelineGrid = memo(function TimelineGrid({
               className="timeline-today-label"
               style={{ left: `${todayLeft}%` }}
             >
-              Today
+              {todayLabel}
             </span>
           </div>
         </div>

@@ -73,6 +73,13 @@ describe("conferences data", () => {
     ).toBe("2026-07-03");
   });
 
+  it("keeps CoLM unranked so it renders without any ranking tags", () => {
+    const colm = conferences.find((conference) => conference.id === "colm-2026");
+
+    expect(colm).toBeDefined();
+    expect(colm?.rankings).toEqual({});
+  });
+
   it("uses official 2026 NeurIPS dates and omits unannounced rebuttal milestones", () => {
     const neurips = conferences.find((conference) => conference.id === "neurips-2026");
 

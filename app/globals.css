@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --page-bg: #fafafa;
   --surface-bg: rgba(255, 255, 255, 0.8);
   --surface-elevated: rgba(255, 255, 255, 0.95);
@@ -36,6 +37,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --page-bg: #0a0a0a;
   --surface-bg: rgba(20, 20, 20, 0.88);
   --surface-elevated: rgba(26, 26, 26, 0.95);
@@ -254,16 +256,21 @@ body {
 
 .timeline-marker {
   cursor: pointer;
+}
+
+.timeline-marker-surface {
   transition:
-    transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 120ms cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.timeline-marker:hover,
-.timeline-marker:focus-visible {
-  z-index: 30;
+.timeline-marker-dot {
+  transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.timeline-marker:hover .timeline-marker-surface,
+.timeline-marker:focus-visible .timeline-marker-surface {
   border-color: color-mix(in srgb, var(--accent-secondary) 18%, var(--panel-border));
-  transform: translateX(-50%) scale(1.15);
   box-shadow: 0 0 0 3px var(--marker-glow, var(--grid-glow));
 }
 
@@ -274,12 +281,12 @@ body {
 
 .conference-trigger:hover .conference-trigger-title,
 .conference-trigger:focus-visible .conference-trigger-title {
-  color: var(--text-primary);
+  color: var(--accent-secondary);
 }
 
 .conference-trigger:hover .conference-trigger-year,
 .conference-trigger:focus-visible .conference-trigger-year {
-  color: var(--text-primary);
+  color: var(--accent-secondary);
 }
 
 .conference-detail-card {
