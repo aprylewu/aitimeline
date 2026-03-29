@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { conferences } from "@/data/conferences";
@@ -71,6 +71,31 @@ it("shows the current viewer-local timestamp beside the today marker", () => {
   );
 
   expect(screen.getByTestId("today-label")).toHaveTextContent("Mar 26 08:00 GMT+8");
+});
+
+it("switches from the server render time to the device's current time after mount", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-03-29T09:07:00.000Z"));
+
+  try {
+    render(
+      <TimelineBrowser
+        conferences={conferences}
+        now={new Date("2026-03-29T06:00:00.000Z")}
+        syncNowWithDevice
+        viewerTimeZone="Asia/Shanghai"
+      />,
+    );
+
+    await act(async () => {});
+
+    expect(screen.getByTestId("today-label")).toHaveTextContent(
+      "Mar 29 17:07 GMT+8",
+    );
+  } finally {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+  }
 });
 
 it("shows Abstract milestones by default when they differ from the full paper deadline", () => {

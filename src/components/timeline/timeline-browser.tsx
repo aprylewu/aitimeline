@@ -24,6 +24,7 @@ import type {
 interface TimelineBrowserProps {
   conferences: Conference[];
   now: Date;
+  syncNowWithDevice?: boolean;
   viewerTimeZone?: string;
 }
 
@@ -223,12 +224,14 @@ function getFocusScrollLeft(args: {
 export function TimelineBrowser({
   conferences,
   now,
+  syncNowWithDevice = false,
   viewerTimeZone,
 }: TimelineBrowserProps) {
   const resolvedViewerTimeZone = useMemo(
     () => resolveViewerTimeZone(viewerTimeZone),
     [viewerTimeZone],
   );
+  const [currentNow, setCurrentNow] = useState(() => new Date(now));
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [query, setQuery] = useState("");
   const [isDraggingSurface, setIsDraggingSurface] = useState(false);
@@ -236,27 +239,28 @@ export function TimelineBrowser({
     () => new Set(),
   );
   const [visibleRange, setVisibleRange] = useState(() =>
-    getDefaultVisibleRange(now, resolvedViewerTimeZone),
+    getDefaultVisibleRange(new Date(now), resolvedViewerTimeZone),
   );
   const [visibleMilestoneTypes, setVisibleMilestoneTypes] = useState(
     () => new Set<MilestoneType>(DEFAULT_VISIBLE_MILESTONE_TYPES),
   );
   const surfaceDragStateRef = useRef<SurfaceDragState | null>(null);
   const timelineSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const previousDefaultVisibleRangeRef = useRef(visibleRange);
   const [timelineSurfaceWidth, setTimelineSurfaceWidth] = useState(0);
   const defaultVisibleRange = useMemo(
-    () => getDefaultVisibleRange(now, resolvedViewerTimeZone),
-    [now, resolvedViewerTimeZone],
+    () => getDefaultVisibleRange(currentNow, resolvedViewerTimeZone),
+    [currentNow, resolvedViewerTimeZone],
   );
   const presetRanges = useMemo(
     () =>
       Object.fromEntries(
         PRESET_OPTIONS.map((preset) => [
           preset,
-          getPresetRange(now, preset, resolvedViewerTimeZone),
+          getPresetRange(currentNow, preset, resolvedViewerTimeZone),
         ]),
       ) as Record<(typeof PRESET_OPTIONS)[number], { start: Date; end: Date }>,
-    [now, resolvedViewerTimeZone],
+    [currentNow, resolvedViewerTimeZone],
   );
   const allRange = useMemo(
     () => getAllRange(conferences, resolvedViewerTimeZone),
@@ -382,12 +386,12 @@ export function TimelineBrowser({
         visibleMilestoneTypes,
         visibleRange,
         viewerTimeZone: resolvedViewerTimeZone,
-        now,
+        now: currentNow,
       }),
     [
       categories,
       conferences,
-      now,
+      currentNow,
       query,
       resolvedViewerTimeZone,
       visibleRange,
@@ -434,6 +438,53 @@ export function TimelineBrowser({
       ) ?? (allRange && rangesMatch(visibleRange, allRange) ? "All" : null),
     [allRange, presetRanges, visibleRange],
   );
+
+  useEffect(() => {
+    if (!syncNowWithDevice) {
+      return undefined;
+    }
+
+    let minuteIntervalId: number | undefined;
+    const minuteTimeoutId = window.setTimeout(() => {
+      syncCurrentNow();
+      scheduleMinuteUpdates();
+    }, 60_000 - (Date.now() % 60_000));
+
+    const syncCurrentNow = () => {
+      setCurrentNow(new Date());
+    };
+
+    syncCurrentNow();
+
+    const scheduleMinuteUpdates = () => {
+      minuteIntervalId = window.setInterval(syncCurrentNow, 60_000);
+    };
+
+    return () => {
+      window.clearTimeout(minuteTimeoutId);
+
+      if (minuteIntervalId !== undefined) {
+        window.clearInterval(minuteIntervalId);
+      }
+    };
+  }, [syncNowWithDevice]);
+
+  useEffect(() => {
+    setVisibleRange((currentVisibleRange) => {
+      if (
+        !rangesMatch(
+          currentVisibleRange,
+          previousDefaultVisibleRangeRef.current,
+        ) ||
+        rangesMatch(currentVisibleRange, defaultVisibleRange)
+      ) {
+        return currentVisibleRange;
+      }
+
+      return defaultVisibleRange;
+    });
+    previousDefaultVisibleRangeRef.current = defaultVisibleRange;
+  }, [defaultVisibleRange]);
 
   useEffect(() => {
     const surface = timelineSurfaceRef.current;
@@ -601,7 +652,7 @@ export function TimelineBrowser({
             visibleMilestoneTypes={visibleMilestoneTypes}
             visibleRange={timelineRange}
             width={timelineContentWidth}
-            now={now}
+            now={currentNow}
             viewerTimeZone={resolvedViewerTimeZone}
           />
         </div>
