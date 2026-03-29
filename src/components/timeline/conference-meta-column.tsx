@@ -61,12 +61,12 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
         <span
           data-testid={`conference-trigger-arrow-${conference.id}`}
           aria-hidden="true"
-          className={`flex h-5 w-5 flex-none items-center justify-center text-[var(--text-muted)] transition-[transform,color,opacity] duration-150 ${
+          className={`flex h-5 w-5 flex-none origin-center items-center justify-center text-[var(--text-muted)] transition-[transform,color,opacity] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
             expanded
-              ? "rotate-90 text-[var(--accent-secondary)] opacity-100"
+              ? "rotate-90 scale-105 text-[var(--accent-secondary)] opacity-100"
               : hovered
-                ? "rotate-0 text-[var(--accent-secondary)] opacity-100"
-                : "rotate-0 opacity-55"
+                ? "rotate-0 scale-100 text-[var(--accent-secondary)] opacity-100"
+                : "rotate-0 scale-95 opacity-55"
           }`}
         >
           <svg

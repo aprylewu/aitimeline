@@ -673,7 +673,7 @@ function ConferenceDetailRow({
             hasInitializedHeightRef.current = true;
           }
         }}
-        className={`conference-inline-row relative z-10 border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
+        className={`conference-inline-row relative z-20 border-b transition-[height,background-color,border-color] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailRowStateClass(expanded)}`}
       >
         <div
           ref={contentRef}
@@ -682,7 +682,7 @@ function ConferenceDetailRow({
         >
           <div
             data-testid={`conference-detail-panel-${conference.id}`}
-            className={`conference-inline-row-inner sticky left-[196px] max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
+            className={`conference-inline-row-inner sticky left-[196px] z-20 max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
           >
             <ConferenceDetailStrip
               conference={conference}

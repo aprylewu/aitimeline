@@ -124,6 +124,12 @@ it("renders a separate today label and only uses hover as a click hint on confer
   expect(
     within(trigger).getByTestId("conference-trigger-arrow-colm-2026"),
   ).toHaveClass("rotate-0");
+  expect(
+    within(trigger).getByTestId("conference-trigger-arrow-colm-2026"),
+  ).toHaveClass("duration-[240ms]");
+  expect(
+    within(trigger).getByTestId("conference-trigger-arrow-colm-2026"),
+  ).toHaveClass("ease-[cubic-bezier(0.22,1,0.36,1)]");
 
   await user.hover(trigger);
 
@@ -154,10 +160,13 @@ it("clicking a conference trigger restores the older compact inline detail strip
   expect(trigger).not.toHaveClass("shadow-sm");
   expect(detailRow).toHaveAttribute("aria-hidden", "false");
   expect(detailRow).toHaveClass("relative");
-  expect(detailRow).toHaveClass("z-10");
+  expect(detailRow).toHaveClass("z-20");
   expect(
     within(trigger).getByTestId("conference-trigger-arrow-acl-2026"),
   ).toHaveClass("rotate-90");
+  expect(
+    within(trigger).getByTestId("conference-trigger-arrow-acl-2026"),
+  ).toHaveClass("scale-105");
   expect(within(detailRow).queryByText(/^ACL$/)).not.toBeInTheDocument();
   expect(within(detailRow).queryByText(/^2026$/)).not.toBeInTheDocument();
   expect(
@@ -265,6 +274,7 @@ it("keeps expanded conference details fixed while the timeline scrolls independe
   expect(detailMetaCell).toHaveClass("z-10");
   expect(detailPanel).toHaveClass("sticky");
   expect(detailPanel).toHaveClass("left-[196px]");
+  expect(detailPanel).toHaveClass("z-20");
   expect(detailRow).not.toHaveClass("col-span-2");
 });
 
