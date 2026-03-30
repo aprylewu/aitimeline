@@ -1,65 +1,78 @@
 # AI Timeline
 
-AI Timeline is a conference deadline browser focused on the submission to
-decision chain for AI and adjacent research venues. It provides a single-page,
-interactive timeline for tracking paper deadlines, rebuttal windows,
-notifications, and conference dates.
+AI Timeline is a conference deadline browser for AI and adjacent CS venues. It
+pulls upstream conference calendars into one interactive timeline so you can
+compare submission windows, rebuttal periods, notifications, camera-ready
+milestones, and conference dates without jumping across multiple CFP pages.
 
 Live site: [https://www.ai-timeline.net/](https://www.ai-timeline.net/)
 
-Built with Next.js, React, TypeScript, and Tailwind CSS.
+Stack: Next.js 16, React 19, TypeScript 5, Tailwind CSS 4, and Vitest.
 
-## Features
+## What The App Supports
 
-- Live web app available at
-  [https://www.ai-timeline.net/](https://www.ai-timeline.net/)
-- Interactive timeline view for the full submission, rebuttal, decision, and
-  conference cycle
-- Search by conference name
-- Filter by category
-- Toggle visible milestone types such as full paper, rebuttal, notification,
-  camera ready, and conference dates
-- Range presets for `3M`, `6M`, `12M`, and `All`
-- Automatic grouping into `Active` and `Past` sections
-- Countdown tooltip for each milestone with time converted to the viewer's
-  local timezone
-- Direct links to official conference websites and CFP pages when available
-- Responsive layout with a compact mobile controls view
-- Light and dark theme toggle
+- One continuous timeline surface with drag-to-pan for dense deadline seasons
+- Search with `Cmd/Ctrl+K`
+- Filters for category, milestone type, and visible range (`3M`, `6M`, `12M`,
+  `All`)
+- Automatic `Active` / `Past` grouping based on the viewer's current time
+- Timezone-aware milestone tooltips that show both the source date context and
+  the viewer-local time
+- Ranking badges for `CCF`, `CORE`, and `THCPL` when available
+- Expandable inline venue details with location, CFP links, and notes for
+  partial schedules
+- Responsive layout plus light/dark theme switching
 
-## Conference Data
+## Data Flow
 
-Conference data lives in
-[`src/data/conferences.ts`](./src/data/conferences.ts). The live site reads
-from this dataset to render the timeline.
+The home page renders on the server in [`app/page.tsx`](./app/page.tsx) and
+loads conference data through
+[`src/lib/data/get-conferences.ts`](./src/lib/data/get-conferences.ts).
 
-When adding a conference:
+The runtime data path is:
 
-1. Add a new `Conference` object to the exported `conferences` array.
-2. Keep milestone entries in chronological order.
-3. Use `YYYY-MM-DD` date strings and set the milestone `timezone` explicitly.
-4. Prefer official conference links for `website` and official CFP dates when
-   they are available.
+1. Try a live fetch + merge from:
+   - [`ccfddl/ccf-deadlines`](https://github.com/ccfddl/ccf-deadlines)
+   - [`huggingface/ai-deadlines`](https://github.com/huggingface/ai-deadlines)
+2. Fall back to the committed cache snapshot in
+   [`src/lib/data/cache.json`](./src/lib/data/cache.json)
+3. Fall back again to the curated seed dataset in
+   [`src/data/conferences.ts`](./src/data/conferences.ts)
 
-Supported milestone types:
+When both upstream sources contain the same venue/year, the merge keeps the
+structured category and ranking metadata from CCFDDL and the richer milestone
+chain from HF AI Deadlines.
 
-- `abstract`
-- `fullPaper`
-- `supplementary`
-- `rebuttalStart`
-- `rebuttalEnd`
-- `notification`
-- `cameraReady`
-- `conferenceStart`
-- `conferenceEnd`
-- `workshop`
+Additional details:
+
+- [`app/page.tsx`](./app/page.tsx) exports `revalidate = 86400`, so Next.js
+  refreshes the page on a 24-hour cadence.
+- Milestones support `AoE`, `UTC`, named IANA timezones, and local conference
+  dates.
+- The static dataset remains in the repo as the final fallback, not the primary
+  production source.
+
+## Repository Guide
+
+- [`app/page.tsx`](./app/page.tsx): server entry point that requests conference
+  data and renders the timeline browser
+- [`src/components/timeline`](./src/components/timeline): interactive UI for
+  controls, grid rendering, tooltips, and expandable detail rows
+- [`src/lib/data`](./src/lib/data): upstream fetchers, source merging, ranking
+  parsing, category inference, and fallback loading
+- [`src/lib/timeline`](./src/lib/timeline): range math, timezone handling,
+  filtering, positioning, and sectioning
+- [`src/data/conferences.ts`](./src/data/conferences.ts): curated seed data used
+  only when live data and cache are both unavailable
 
 ## Local Development
+
+Node 22 is recommended to match the GitHub Actions environment.
 
 Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Run the app locally:
@@ -70,10 +83,19 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-Run checks:
+Run verification checks:
 
 ```bash
 npm run test -- --run
 npm run lint
 npm run build
 ```
+
+## CI
+
+GitHub Actions runs the following on pushes to `main` and pull requests that
+target `main`:
+
+- tests
+- lint
+- production build
