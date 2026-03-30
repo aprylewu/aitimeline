@@ -209,6 +209,35 @@ it("shows the clear action for non-default preset and milestone filters", async 
   ).toBeInTheDocument();
 });
 
+it("keeps the reset action mounted but disabled for the default range", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: /reset filters/i })).toBeDisabled();
+});
+
+it("reduces visible month labels when the range is too dense", async () => {
+  const user = userEvent.setup();
+
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "All" }));
+
+  expect(screen.getByText("Sep 2025")).toBeInTheDocument();
+  expect(screen.getByText("Dec 2026")).toBeInTheDocument();
+  expect(screen.queryByText("Oct 2025")).not.toBeInTheDocument();
+  expect(screen.queryByText("Nov 2026")).not.toBeInTheDocument();
+});
+
 it("drags the timeline surface horizontally with pointer input", async () => {
   const user = userEvent.setup();
 

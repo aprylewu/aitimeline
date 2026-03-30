@@ -96,7 +96,5 @@ it("shows inline clear and reset actions for active search filters", async () =>
   expect(
     screen.queryByRole("button", { name: /clear search/i }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: /reset filters/i }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /reset filters/i })).toBeDisabled();
 });
