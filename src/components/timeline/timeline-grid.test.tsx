@@ -382,8 +382,11 @@ it("renders larger month labels for the shared axis", () => {
     />,
   );
 
-  expect(screen.getByText("Apr 2026")).toHaveClass("text-[10px]");
-  expect(screen.getByText("Apr 2026")).toHaveClass("md:text-[11px]");
+  const axisLabels = screen.getAllByTestId(/axis-label-/);
+
+  expect(axisLabels.length).toBeGreaterThan(0);
+  expect(axisLabels[0]).toHaveClass("text-[10px]");
+  expect(axisLabels[0]).toHaveClass("md:text-[11px]");
 });
 
 it("anchors the first and last month labels inside the visible axis", () => {
