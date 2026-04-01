@@ -137,4 +137,104 @@ describe("conferences data", () => {
       emnlp?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
     ).toBe("2026-10-29");
   });
+
+  it("includes curated systems venues with official 2026 milestone schedules", () => {
+    const expectedIds = [
+      "eurosys-2026",
+      "nsdi-2026",
+      "osdi-2026",
+      "socc-2026",
+      "sosp-2026",
+    ];
+
+    expect(
+      expectedIds.every((id) => conferences.some((conference) => conference.id === id)),
+    ).toBe(true);
+
+    const eurosys = conferences.find((conference) => conference.id === "eurosys-2026");
+    const nsdi = conferences.find((conference) => conference.id === "nsdi-2026");
+    const osdi = conferences.find((conference) => conference.id === "osdi-2026");
+    const socc = conferences.find((conference) => conference.id === "socc-2026");
+    const sosp = conferences.find((conference) => conference.id === "sosp-2026");
+
+    expect(eurosys?.category).toBe("SE");
+    expect(eurosys?.cfpUrl).toContain("2026.eurosys.org/cfp.html");
+    expect(
+      eurosys?.milestones.find((milestone) => milestone.id === "eurosys-2026-full-paper-spring")
+        ?.dateStart,
+    ).toBe("2025-05-15");
+    expect(
+      eurosys?.milestones.find((milestone) => milestone.id === "eurosys-2026-notification-fall")
+        ?.dateStart,
+    ).toBe("2026-01-30");
+    expect(
+      eurosys?.milestones.find((milestone) => milestone.type === "conferenceStart")?.dateStart,
+    ).toBe("2026-04-27");
+    expect(
+      eurosys?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
+    ).toBe("2026-04-30");
+
+    expect(nsdi?.category).toBe("SE");
+    expect(nsdi?.cfpUrl).toContain("usenix.org/conference/nsdi26/call-for-papers");
+    expect(
+      nsdi?.milestones.find((milestone) => milestone.id === "nsdi-2026-full-paper-fall")
+        ?.dateStart,
+    ).toBe("2025-09-18");
+    expect(
+      nsdi?.milestones.find((milestone) => milestone.id === "nsdi-2026-camera-ready-spring")
+        ?.dateStart,
+    ).toBe("2025-10-27");
+    expect(
+      nsdi?.milestones.find((milestone) => milestone.id === "nsdi-2026-notification-fall")
+        ?.dateStart,
+    ).toBe("2025-12-09");
+    expect(
+      nsdi?.milestones.find((milestone) => milestone.type === "conferenceStart")?.dateStart,
+    ).toBe("2026-05-04");
+
+    expect(osdi?.category).toBe("SE");
+    expect(osdi?.location).toBe("Seattle, WA, USA");
+    expect(osdi?.cfpUrl).toContain("usenix.org/conference/osdi26/call-for-papers");
+    expect(
+      osdi?.milestones.find((milestone) => milestone.type === "fullPaper")?.dateStart,
+    ).toBe("2025-12-11");
+    expect(
+      osdi?.milestones.find((milestone) => milestone.type === "notification")?.dateStart,
+    ).toBe("2026-03-26");
+    expect(
+      osdi?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
+    ).toBe("2026-07-15");
+
+    expect(socc?.category).toBe("SE");
+    expect(socc?.cfpUrl).toContain("acmsocc.org/2026/papers.html");
+    expect(
+      socc?.milestones.find((milestone) => milestone.id === "socc-2026-rebuttal-start-round-1")
+        ?.dateStart,
+    ).toBe("2026-04-12");
+    expect(
+      socc?.milestones.find((milestone) => milestone.id === "socc-2026-full-paper-round-2")
+        ?.dateStart,
+    ).toBe("2026-07-14");
+    expect(
+      socc?.milestones.find((milestone) => milestone.type === "cameraReady")?.dateStart,
+    ).toBe("2026-10-17");
+    expect(
+      socc?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
+    ).toBe("2026-11-20");
+
+    expect(sosp?.category).toBe("SE");
+    expect(sosp?.cfpUrl).toContain("sigops.org/s/conferences/sosp/2026/cfp.html");
+    expect(
+      sosp?.milestones.find((milestone) => milestone.type === "abstract")?.dateStart,
+    ).toBe("2026-03-26");
+    expect(
+      sosp?.milestones.find((milestone) => milestone.type === "notification")?.dateStart,
+    ).toBe("2026-07-03");
+    expect(
+      sosp?.milestones.find((milestone) => milestone.type === "conferenceStart")?.dateStart,
+    ).toBe("2026-09-30");
+    expect(
+      sosp?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
+    ).toBe("2026-10-02");
+  });
 });

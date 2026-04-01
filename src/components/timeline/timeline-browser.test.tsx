@@ -1,7 +1,10 @@
+import { addMonths, format, subMonths } from "date-fns";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { conferences } from "@/data/conferences";
+import { alignVisibleRangeToMonthBounds } from "@/lib/timeline/date-range";
+import { getMilestoneRange } from "@/lib/timeline/milestone-time";
 import { TimelineBrowser } from "./timeline-browser";
 
 it("renders one shared gantt surface and supports dark mode", async () => {
@@ -177,15 +180,19 @@ it("shows the clear action for non-default preset and milestone filters", async 
   expect(screen.getByText("AAAI")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "3M" }));
+  await user.type(
+    screen.getByRole("textbox", { name: /search conferences/i }),
+    "does-not-exist",
+  );
 
   expect(
     screen.getByText("No conferences match the current filters."),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /clear filters/i }),
+    screen.getByRole("button", { name: /reset filters/i }),
   ).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: /clear filters/i }));
+  await user.click(screen.getByRole("button", { name: /reset filters/i }));
 
   expect(screen.getByText("AAAI")).toBeInTheDocument();
 
@@ -205,7 +212,7 @@ it("shows the clear action for non-default preset and milestone filters", async 
     screen.getByText("No conferences match the current filters."),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /clear filters/i }),
+    screen.getByRole("button", { name: /reset filters/i }),
   ).toBeInTheDocument();
 });
 
@@ -222,6 +229,21 @@ it("keeps the reset action mounted but disabled for the default range", () => {
 
 it("reduces visible month labels when the range is too dense", async () => {
   const user = userEvent.setup();
+  const points = conferences.flatMap((conference) =>
+    conference.milestones.flatMap((milestone) => {
+      const range = getMilestoneRange(milestone);
+
+      return [range.start, range.end];
+    }),
+  );
+  const allRange = alignVisibleRangeToMonthBounds({
+    start: new Date(Math.min(...points.map((point) => point.getTime()))),
+    end: new Date(Math.max(...points.map((point) => point.getTime()))),
+  });
+  const firstLabel = format(allRange.start, "MMM yyyy");
+  const secondLabel = format(addMonths(allRange.start, 1), "MMM yyyy");
+  const lastLabel = format(allRange.end, "MMM yyyy");
+  const penultimateLabel = format(subMonths(allRange.end, 1), "MMM yyyy");
 
   render(
     <TimelineBrowser
@@ -232,10 +254,10 @@ it("reduces visible month labels when the range is too dense", async () => {
 
   await user.click(screen.getByRole("button", { name: "All" }));
 
-  expect(screen.getByText("Sep 2025")).toBeInTheDocument();
-  expect(screen.getByText("Dec 2026")).toBeInTheDocument();
-  expect(screen.queryByText("Oct 2025")).not.toBeInTheDocument();
-  expect(screen.queryByText("Nov 2026")).not.toBeInTheDocument();
+  expect(screen.getByText(firstLabel)).toBeInTheDocument();
+  expect(screen.getByText(lastLabel)).toBeInTheDocument();
+  expect(screen.queryByText(secondLabel)).not.toBeInTheDocument();
+  expect(screen.queryByText(penultimateLabel)).not.toBeInTheDocument();
 });
 
 it("drags the timeline surface horizontally with pointer input", async () => {

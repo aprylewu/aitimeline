@@ -136,4 +136,72 @@ describe("getConferences", () => {
 
     expect(result).toEqual(staticConferences);
   });
+
+  it("enriches live merged results with curated static metadata and milestones", async () => {
+    vi.doMock("./fetch-ccfddl", () => ({
+      fetchCcfddl: vi.fn().mockResolvedValue([
+        {
+          shortName: "OSDI",
+          fullName: "USENIX Symposium on Operating Systems Design and Implementation",
+          category: "SE",
+          rank: { ccf: "A", core: "A*" },
+          year: 2026,
+          id: "osdi2026",
+          website: "https://www.usenix.org/conference/osdi26",
+          location: "Seattle, WA, USA",
+          timezone: "UTC",
+          abstractDeadline: "2025-12-04",
+          submissionDeadline: "2025-12-11",
+          conferenceDateStr: "July 13-15, 2026",
+        },
+      ]),
+    }));
+    vi.doMock("./fetch-hf", () => ({
+      fetchHfDeadlines: vi.fn().mockResolvedValue([]),
+    }));
+
+    const { getConferences } = await import("./get-conferences");
+    const result = await getConferences();
+    const osdi = result.find((conference) => conference.id === "osdi-2026");
+
+    expect(osdi).toBeDefined();
+    expect(osdi?.cfpUrl).toContain("/osdi26/call-for-papers");
+    expect(
+      osdi?.milestones.find((milestone) => milestone.type === "notification")?.dateStart,
+    ).toBe("2026-03-26");
+    expect(
+      osdi?.milestones.find((milestone) => milestone.type === "conferenceStart")?.dateStart,
+    ).toBe("2026-07-13");
+  });
+
+  it("supplements cached results with curated static conferences", async () => {
+    vi.doMock("./fetch-ccfddl", () => ({
+      fetchCcfddl: vi.fn().mockResolvedValue([]),
+    }));
+    vi.doMock("./fetch-hf", () => ({
+      fetchHfDeadlines: vi.fn().mockResolvedValue([]),
+    }));
+    vi.doMock("./cache.json", () => ({
+      default: [
+        {
+          id: "aaai-2026",
+          slug: "aaai-2026",
+          title: "AAAI Conference on Artificial Intelligence",
+          shortName: "AAAI",
+          year: 2026,
+          website: "https://aaai.org/conference/aaai/aaai-26/",
+          location: "Singapore",
+          category: "AI",
+          rankings: { ccf: "A" },
+          milestones: [],
+        },
+      ],
+    }));
+
+    const { getConferences } = await import("./get-conferences");
+    const result = await getConferences();
+
+    expect(result.some((conference) => conference.id === "osdi-2026")).toBe(true);
+    expect(result.some((conference) => conference.id === "socc-2026")).toBe(true);
+  });
 });
