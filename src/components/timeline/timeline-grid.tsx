@@ -308,6 +308,41 @@ function getTickLabelTransform(index: number, tickCount: number) {
   return "translateX(-50%)";
 }
 
+function getVisibleTickIndices(tickCount: number, axisWidth: number) {
+  if (tickCount <= 0) {
+    return [];
+  }
+
+  const safeAxisWidth = Math.max(980, axisWidth);
+  const minLabelSpacing = 104;
+  const maxVisibleTicks = Math.max(
+    2,
+    Math.floor(safeAxisWidth / minLabelSpacing),
+  );
+  const step = Math.max(1, Math.ceil(tickCount / maxVisibleTicks));
+  const visibleIndices: number[] = [];
+
+  for (let index = 0; index < tickCount; index += step) {
+    visibleIndices.push(index);
+  }
+
+  const lastTickIndex = tickCount - 1;
+  const previousVisibleIndex = visibleIndices[visibleIndices.length - 1];
+
+  if (previousVisibleIndex !== lastTickIndex) {
+    if (
+      visibleIndices.length > 1 &&
+      lastTickIndex - previousVisibleIndex < step
+    ) {
+      visibleIndices[visibleIndices.length - 1] = lastTickIndex;
+    } else {
+      visibleIndices.push(lastTickIndex);
+    }
+  }
+
+  return visibleIndices;
+}
+
 function getMilestoneTone(type: MilestoneType): TimelineTone {
   if (type === "fullPaper") {
     return "fullPaper";
@@ -1052,6 +1087,10 @@ export const TimelineGrid = memo(function TimelineGrid({
     () => ticks.map((tick) => getPositionPercent(tick, visibleRange)),
     [ticks, visibleRange],
   );
+  const visibleTickIndices = useMemo(
+    () => getVisibleTickIndices(ticks.length, width ?? 980),
+    [ticks.length, width],
+  );
   const renderedMilestoneTypes = useMemo(
     () =>
       visibleMilestoneTypes ??
@@ -1088,7 +1127,10 @@ export const TimelineGrid = memo(function TimelineGrid({
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
           <div className="timeline-axis-track">
-            {ticks.map((tick, index) => (
+            {visibleTickIndices.map((index) => {
+              const tick = ticks[index]!;
+
+              return (
               <div
                 key={tick.toISOString()}
                 className="timeline-axis-tick"
@@ -1102,7 +1144,8 @@ export const TimelineGrid = memo(function TimelineGrid({
                   {formatTickLabel(tick, viewerTimeZone)}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         {sections.map((section) => {

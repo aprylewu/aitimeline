@@ -91,6 +91,12 @@ function getControlButtonClass(isActive: boolean) {
     : "border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]";
 }
 
+function getResetButtonClass(isEnabled: boolean) {
+  return isEnabled
+    ? "border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-primary)] hover:border-[var(--text-primary)]"
+    : "border-[var(--panel-border)] bg-[var(--chip-bg)] text-[var(--text-muted)] opacity-60";
+}
+
 function getMilestonePopoverPosition(anchorRect: DOMRect) {
   const width = 256;
   const viewportPadding = 16;
@@ -334,22 +340,30 @@ export function ControlsBar({
                   )
                 : null}
             </div>
-            {hasActiveFilters ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClearFilters();
-                  setFiltersOpen(false);
-                }}
-                aria-label="Reset filters"
-                className="timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 text-[11px] font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)]"
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={() => {
+                onClearFilters();
+                setFiltersOpen(false);
+              }}
+              aria-label="Reset filters"
+              className={`timeline-control flex h-11 min-w-[112px] items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getResetButtonClass(
+                hasActiveFilters,
+              )} ${hasActiveFilters ? "cursor-pointer" : "cursor-default"}`}
+            >
+              Reset
+              <span
+                aria-hidden={!hasActiveFilters}
+                className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium ${
+                  hasActiveFilters
+                    ? "bg-[var(--chip-active-bg)] text-[var(--text-muted)]"
+                    : "invisible bg-transparent text-transparent"
+                }`}
               >
-                Reset
-                <span className="rounded-full bg-[var(--chip-active-bg)] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[var(--text-muted)]">
-                  {activeFilterCount}
-                </span>
-              </button>
-            ) : null}
+                {activeFilterCount}
+              </span>
+            </button>
             <button
               type="button"
               onClick={onThemeToggle}
