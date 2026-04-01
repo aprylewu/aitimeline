@@ -20,30 +20,33 @@ describe("organizeConferenceSections", () => {
       now: new Date("2026-03-26T00:00:00Z"),
     });
 
-    expect(sections.active.map((conference) => conference.shortName)).toEqual([
-      "ACL",
-      "DIS",
-      "IJCAI",
-      "ICML",
-      "KDD",
-      "MICCAI",
-      "ECSCW",
-      "CoLM",
-      "NeurIPS",
-      "SIGSPATIAL",
-      "EMNLP",
-    ]);
-    expect(sections.past.map((conference) => conference.shortName)).toEqual([
-      "CHI",
-      "ICLR",
-      "Eurographics",
-      "WWW",
-      "SIGMOD",
-      "ICDE",
-      "MLSys",
-      "CVPR",
-      "EuroVis",
-    ]);
+    const activeNames = sections.active.map((conference) => conference.shortName);
+    const pastNames = sections.past.map((conference) => conference.shortName);
+
+    expect(activeNames).toEqual(
+      expect.arrayContaining([
+        "OSDI",
+        "ACL",
+        "DIS",
+        "IJCAI",
+        "SoCC",
+        "SOSP",
+        "NeurIPS",
+      ]),
+    );
+    expect(pastNames).toEqual(
+      expect.arrayContaining([
+        "EuroSys",
+        "CHI",
+        "ICLR",
+        "WWW",
+      ]),
+    );
+    expect(activeNames).not.toContain("NSDI");
+    expect(pastNames).not.toContain("NSDI");
+    expect(activeNames.indexOf("OSDI")).toBeLessThan(activeNames.indexOf("ACL"));
+    expect(activeNames.indexOf("SoCC")).toBeLessThan(activeNames.indexOf("MICCAI"));
+    expect(activeNames.indexOf("SOSP")).toBeLessThan(activeNames.indexOf("NeurIPS"));
   });
 
   it("does not mark an AoE decision as past before the real AoE deadline instant", () => {

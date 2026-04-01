@@ -36,7 +36,7 @@ const CATEGORY_LABELS: Record<ConferenceCategory, string> = {
   MX: "Vision",
   NW: "Networks",
   SC: "Security",
-  SE: "Software",
+  SE: "Systems",
 };
 
 const MILESTONE_LABELS: Record<MilestoneType, string> = {
