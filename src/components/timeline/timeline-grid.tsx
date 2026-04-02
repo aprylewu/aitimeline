@@ -515,18 +515,18 @@ function ConferenceDetailStrip({
   const rankingEntries = getRankingEntries(conference);
 
   return (
-    <div className="conference-inline-strip flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <div className="conference-inline-strip flex flex-col gap-1.5 sm:gap-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:gap-x-4 sm:gap-y-2">
+        <div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:gap-x-3 sm:gap-y-1">
           <span
             data-testid={`conference-detail-title-${conference.id}`}
-            className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
+            className="text-[11px] font-medium leading-4 text-[var(--text-primary)] sm:text-[13px] sm:leading-5"
           >
             {conference.title}
           </span>
           <span
             data-testid={`conference-detail-summary-${conference.id}`}
-            className="text-[12px] leading-5 text-[var(--text-muted)]"
+            className="text-[10px] leading-4 text-[var(--text-muted)] sm:text-[12px] sm:leading-5"
           >
             {getConferenceSummary(conference, viewerTimeZone)}
           </span>
@@ -537,13 +537,13 @@ function ConferenceDetailStrip({
             target="_blank"
             rel="noreferrer noopener"
             tabIndex={expanded ? 0 : -1}
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+            className="inline-flex items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-[10px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)] sm:shrink-0 sm:px-5 sm:py-2 sm:text-[11px]"
           >
             Call For Papers
           </a>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] leading-4 text-[var(--text-muted)] sm:gap-x-3 sm:gap-y-1 sm:text-[11px] sm:leading-5">
         {rankingEntries.length > 0 ? (
           rankingEntries.map(([key, value]) => (
             <span
@@ -566,7 +566,7 @@ function ConferenceDetailStrip({
       {conference.detailNote ? (
         <p
           data-testid={`conference-detail-note-${conference.id}`}
-          className="rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--text-muted)]"
+          className="rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)] px-2.5 py-1.5 text-[9px] leading-4 text-[var(--text-muted)] sm:px-3 sm:py-2 sm:text-[11px] sm:leading-5"
         >
           {conference.detailNote}
         </p>
@@ -713,11 +713,12 @@ function ConferenceDetailRow({
         <div
           ref={contentRef}
           data-testid={`conference-detail-content-${conference.id}`}
-          className="px-4 py-2.5"
+          className="px-2.5 py-2 sm:px-4 sm:py-2.5"
         >
           <div
             data-testid={`conference-detail-panel-${conference.id}`}
-            className={`conference-inline-row-inner sticky left-[196px] z-20 max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
+            className={`conference-inline-row-inner sticky z-20 max-w-[calc(100vw-2rem)] sm:max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
+            style={{ left: "calc(var(--timeline-meta-width) + 16px)" }}
           >
             <ConferenceDetailStrip
               conference={conference}
@@ -1113,7 +1114,7 @@ export const TimelineGrid = memo(function TimelineGrid({
   return (
     <div
       data-testid="timeline-scroll-content"
-      className="relative min-w-[980px]"
+      className="relative min-w-[720px]"
       style={width ? { width: `${width}px` } : undefined}
     >
       <div

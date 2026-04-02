@@ -33,9 +33,8 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
   const rankingEntries = Object.entries(conference.rankings).filter(
     ([, value]) => value,
   );
-  const compactMeta = [conference.category, getCompactRankingLabel(conference)]
-    .filter(Boolean)
-    .join(" · ");
+  const compactTags = [conference.category, getCompactRankingLabel(conference)]
+    .filter(Boolean) as string[];
 
   if (compact) {
     return (
@@ -44,7 +43,7 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
           <p className="flex items-baseline gap-1.5">
             <span
               title={conference.shortName}
-              className="conference-trigger-title block min-w-0 flex-1 truncate text-[11px] font-medium tracking-[0.01em] text-[var(--text-primary)] md:text-[12px]"
+              className="conference-trigger-title block min-w-0 flex-1 truncate text-[10px] font-bold tracking-[0.02em] text-[var(--accent-primary)] sm:text-[11px] md:text-[12px]"
             >
               {conference.shortName}
             </span>
@@ -52,10 +51,17 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
               {conference.year}
             </span>
           </p>
-          {compactMeta ? (
-            <p className="mt-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              {compactMeta}
-            </p>
+          {compactTags.length > 0 ? (
+            <div className="mt-0.5 flex items-center gap-0.5 sm:mt-1 sm:gap-1">
+              {compactTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded border border-[var(--panel-border)] bg-[var(--chip-bg)] px-1 py-0 font-mono text-[7px] font-semibold uppercase tracking-[0.04em] text-[var(--text-muted)] sm:px-1.5 sm:py-0.5 sm:text-[8px] sm:tracking-[0.06em]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
           ) : null}
         </div>
         <span
