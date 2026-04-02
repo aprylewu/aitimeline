@@ -113,6 +113,7 @@ describe("conferences data", () => {
 
     expect(emnlp).toBeDefined();
     expect(emnlp?.shortName).toBe("EMNLP");
+    expect(emnlp?.rankings).toEqual({ ccf: "B" });
     expect(emnlp?.location).toBe("Budapest, Hungary");
     expect(emnlp?.cfpUrl).toContain("2026.emnlp.org/calls/main_conference_papers");
     expect(emnlp?.milestones.find((milestone) => milestone.type === "fullPaper")?.dateStart).toBe(
