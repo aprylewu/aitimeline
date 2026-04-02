@@ -762,7 +762,9 @@ export const conferences: Conference[] = [
     cfpUrl: "https://2026.emnlp.org/calls/main_conference_papers/",
     location: "Budapest, Hungary",
     category: "AI",
-    rankings: {},
+    rankings: {
+      ccf: "B",
+    },
     milestones: [
       {
         id: "emnlp-2026-full-paper",
