@@ -198,7 +198,7 @@ it("clicking a conference trigger restores the older compact inline detail strip
   ).toHaveAttribute("href", expect.stringContaining("aclweb.org"));
 });
 
-it("keeps the sticky meta cell as the positioning context for the trigger hover animation", async () => {
+it("keeps the fixed meta cell as the positioning context for the trigger hover animation", async () => {
   const user = userEvent.setup();
 
   render(
@@ -224,7 +224,7 @@ it("keeps the sticky meta cell as the positioning context for the trigger hover 
     .getByTestId("conference-trigger-colm-2026")
     .closest("div");
 
-  expect(metaCell).toHaveClass("sticky");
+  expect(metaCell).toHaveClass("timeline-meta-fixed");
   expect(metaCell).toHaveClass("relative");
 });
 
@@ -269,11 +269,10 @@ it("keeps expanded conference details fixed while the timeline scrolls independe
   const detailPanel = screen.getByTestId("conference-detail-panel-acl-2026");
   const detailRow = screen.getByTestId("conference-detail-row-acl-2026");
 
-  expect(detailMetaCell).toHaveClass("sticky");
-  expect(detailMetaCell).toHaveClass("left-0");
+  expect(detailMetaCell).toHaveClass("timeline-meta-fixed");
   expect(detailMetaCell).toHaveClass("z-10");
   expect(detailPanel).toHaveClass("sticky");
-  expect(detailPanel).toHaveClass("left-[196px]");
+  expect(detailPanel).toHaveClass("left-[var(--timeline-meta-width)]");
   expect(detailPanel).toHaveClass("z-20");
   expect(detailRow).not.toHaveClass("col-span-2");
 });

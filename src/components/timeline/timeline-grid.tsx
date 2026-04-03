@@ -693,7 +693,7 @@ function ConferenceDetailRow({
       <div
         data-testid={`conference-detail-meta-${conference.id}`}
         aria-hidden={!expanded}
-        className={`timeline-meta-cell sticky left-0 z-10 border-b transition-[opacity,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailMetaCellClass(expanded)}`}
+        className={`timeline-meta-cell timeline-meta-fixed timeline-detail-meta-mobile-hidden z-10 border-b transition-[opacity,background-color,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailMetaCellClass(expanded)}`}
       />
       <div
         id={`conference-detail-row-${conference.id}`}
@@ -717,7 +717,7 @@ function ConferenceDetailRow({
         >
           <div
             data-testid={`conference-detail-panel-${conference.id}`}
-            className={`conference-inline-row-inner sticky left-[196px] z-20 max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
+            className={`conference-inline-row-inner timeline-detail-panel-mobile sticky left-[var(--timeline-meta-width)] z-20 max-w-[44rem] transition-[opacity,transform] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] ${getDetailPanelClass(expanded)}`}
           >
             <ConferenceDetailStrip
               conference={conference}
@@ -927,7 +927,7 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
   return (
     <Fragment>
       <div
-        className="timeline-meta-cell relative sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-2.5 py-2 md:px-3.5"
+        className="timeline-meta-cell timeline-meta-fixed timeline-meta-mobile-stack relative z-10 border-b border-[var(--panel-border)] px-2.5 py-2 md:px-3.5"
       >
         <button
           ref={triggerRef}
@@ -1117,12 +1117,9 @@ export const TimelineGrid = memo(function TimelineGrid({
       style={width ? { width: `${width}px` } : undefined}
     >
       <div
-        className="grid"
-        style={{
-          gridTemplateColumns: "var(--timeline-meta-width) minmax(0, 1fr)",
-        }}
+        className="timeline-grid-layout grid"
       >
-        <div className="timeline-meta-head sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-3 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
+        <div className="timeline-meta-head timeline-meta-fixed z-10 border-b border-[var(--panel-border)] px-3 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
           Venue
         </div>
         <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
@@ -1155,7 +1152,7 @@ export const TimelineGrid = memo(function TimelineGrid({
 
           return (
             <Fragment key={section.id}>
-              <div className="timeline-section-label sticky left-0 z-10 border-b border-[var(--panel-border)] bg-[var(--surface-elevated)] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
+              <div className="timeline-section-label timeline-meta-fixed z-10 border-b border-[var(--panel-border)] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
                 {section.label}
               </div>
               <div className="timeline-section-divider border-b border-[var(--panel-border)]" />
@@ -1175,7 +1172,7 @@ export const TimelineGrid = memo(function TimelineGrid({
       </div>
       {todayVisible ? (
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-10"
+          className="timeline-today-overlay pointer-events-none absolute inset-y-0 right-0 z-10"
           style={{ left: "var(--timeline-meta-width)" }}
         >
           <div className="relative mx-4 h-full">

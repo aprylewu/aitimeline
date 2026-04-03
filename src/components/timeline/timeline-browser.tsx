@@ -334,6 +334,13 @@ export function TimelineBrowser({
     }
   }
 
+  function syncSurfaceScrollOffset(currentTarget: HTMLDivElement) {
+    currentTarget.style.setProperty(
+      "--timeline-scroll-offset",
+      `${currentTarget.scrollLeft}px`,
+    );
+  }
+
   function handleSurfacePointerDown(
     event: ReactPointerEvent<HTMLDivElement>,
   ) {
@@ -374,6 +381,7 @@ export function TimelineBrowser({
     const deltaX = event.clientX - surfaceDragStateRef.current.startX;
     event.currentTarget.scrollLeft =
       surfaceDragStateRef.current.startScrollLeft - deltaX;
+    syncSurfaceScrollOffset(event.currentTarget);
     event.preventDefault();
   }
 
@@ -498,6 +506,7 @@ export function TimelineBrowser({
     };
 
     updateWidth();
+    syncSurfaceScrollOffset(surface);
 
     if (typeof ResizeObserver === "undefined") {
       return undefined;
@@ -527,6 +536,7 @@ export function TimelineBrowser({
       timelineRange,
       viewportWidth: timelineSurfaceWidth,
     });
+    syncSurfaceScrollOffset(surface);
   }, [
     scrollFocusRange,
     timelineContentWidth,
@@ -637,6 +647,7 @@ export function TimelineBrowser({
           aria-label="Conference timeline"
           onPointerDown={handleSurfacePointerDown}
           onPointerMove={handleSurfacePointerMove}
+          onScroll={(event) => syncSurfaceScrollOffset(event.currentTarget)}
           onPointerUp={(event) =>
             endSurfaceDrag(event.currentTarget, event.pointerId)
           }
@@ -684,6 +695,19 @@ export function TimelineBrowser({
             ) : null}
           </div>
         ) : null}
+        <footer className="mt-8 border-t border-[var(--panel-border)] pt-4 pb-2">
+          <div className="max-w-3xl">
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--text-muted)]">
+              Notes
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[var(--text-muted)] md:text-sm">
+              This timeline is maintained as a community reference and may lag
+              behind official venue updates. If you spot an error, please open
+              an issue. If you want to add or update a conference, send a pull
+              request.
+            </p>
+          </div>
+        </footer>
       </section>
     </main>
   );
