@@ -139,6 +139,74 @@ describe("conferences data", () => {
     ).toBe("2026-10-29");
   });
 
+  it("includes the approved second batch of AI and MX conferences", () => {
+    const expectedIds = ["uai-2026", "icaps-2026", "eccv-2026", "recomb-2026"];
+
+    expect(
+      expectedIds.every((id) => conferences.some((conference) => conference.id === id)),
+    ).toBe(true);
+  });
+
+  it("uses verified official dates for the second AI and MX batch", () => {
+    const uai = conferences.find((conference) => conference.id === "uai-2026");
+    const icaps = conferences.find((conference) => conference.id === "icaps-2026");
+    const eccv = conferences.find((conference) => conference.id === "eccv-2026");
+    const recomb = conferences.find((conference) => conference.id === "recomb-2026");
+
+    expect(uai?.rankings).toEqual({ ccf: "B", core: "A", thcpl: "B" });
+    expect(uai?.location).toBe("Amsterdam, Netherlands");
+    expect(uai?.milestones.find((milestone) => milestone.type === "fullPaper")?.dateStart).toBe(
+      "2026-02-25",
+    );
+    expect(uai?.milestones.find((milestone) => milestone.type === "notification")?.dateStart).toBe(
+      "2026-06-01",
+    );
+    expect(
+      uai?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
+    ).toBe("2026-08-20");
+
+    expect(icaps?.rankings).toEqual({ ccf: "B", core: "A*", thcpl: "B" });
+    expect(icaps?.location).toBe("Dublin, Ireland");
+    expect(
+      icaps?.milestones.find((milestone) => milestone.type === "abstract")?.dateStart,
+    ).toBe("2025-12-02");
+    expect(
+      icaps?.milestones.find((milestone) => milestone.type === "rebuttalStart")?.dateStart,
+    ).toBe("2026-02-02");
+    expect(
+      icaps?.milestones.find((milestone) => milestone.type === "conferenceStart")?.dateStart,
+    ).toBe("2026-06-27");
+
+    expect(eccv?.category).toBe("MX");
+    expect(eccv?.rankings).toEqual({ ccf: "B", core: "A*", thcpl: "A" });
+    expect(eccv?.cfpUrl).toContain("eccv.ecva.net/Conferences/2026/CallForPapers");
+    expect(eccv?.milestones.find((milestone) => milestone.type === "abstract")?.dateStart).toBe(
+      "2026-02-26",
+    );
+    expect(
+      eccv?.milestones.find((milestone) => milestone.type === "supplementary")?.dateStart,
+    ).toBe("2026-03-12");
+    expect(
+      eccv?.milestones.find((milestone) => milestone.type === "workshop")?.dateStart,
+    ).toBe("2026-09-08");
+    expect(
+      eccv?.milestones.find((milestone) => milestone.type === "workshop")?.dateEnd,
+    ).toBe("2026-09-09");
+
+    expect(recomb?.category).toBe("MX");
+    expect(recomb?.rankings).toEqual({ ccf: "B", core: "B", thcpl: "A" });
+    expect(recomb?.location).toBe("Thessaloniki, Greece");
+    expect(
+      recomb?.milestones.find((milestone) => milestone.type === "abstract")?.dateStart,
+    ).toBe("2025-11-07");
+    expect(
+      recomb?.milestones.find((milestone) => milestone.type === "cameraReady")?.dateStart,
+    ).toBe("2026-02-25");
+    expect(
+      recomb?.milestones.find((milestone) => milestone.type === "conferenceEnd")?.dateStart,
+    ).toBe("2026-05-29");
+  });
+
   it("includes curated systems venues with official 2026 milestone schedules", () => {
     const expectedIds = [
       "eurosys-2026",
