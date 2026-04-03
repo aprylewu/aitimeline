@@ -98,7 +98,7 @@ function getResetButtonClass(isEnabled: boolean) {
 }
 
 function getMilestonePopoverPosition(anchorRect: DOMRect) {
-  const width = 256;
+  const width = Math.min(256, window.innerWidth - 32);
   const viewportPadding = 16;
 
   return {

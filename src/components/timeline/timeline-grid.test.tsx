@@ -114,7 +114,8 @@ it("renders a separate today label and only uses hover as a click hint on confer
   expect(screen.getByTestId("today-label")).toHaveTextContent("Mar 26 08:00 GMT+8");
 
   const trigger = screen.getByTestId("conference-trigger-colm-2026");
-  expect(within(trigger).getByText("CoLM")).toHaveClass("text-[11px]");
+  expect(within(trigger).getByText("CoLM")).toHaveClass("text-[10px]");
+  expect(within(trigger).getByText("CoLM")).toHaveClass("sm:text-[11px]");
   expect(within(trigger).getByText("CoLM")).toHaveClass("md:text-[12px]");
   expect(within(trigger).getByText("2026")).toHaveClass("text-[9px]");
   expect(within(trigger).getByText(/^AI$/i)).toBeInTheDocument();
@@ -183,10 +184,10 @@ it("clicking a conference trigger restores the older compact inline detail strip
   expect(within(detailRow).getByText(/^AI$/i)).toBeInTheDocument();
   expect(
     within(detailRow).getByTestId("conference-detail-title-acl-2026"),
-  ).toHaveClass("text-[13px]");
+  ).toHaveClass("sm:text-[13px]");
   expect(
     within(detailRow).getByTestId("conference-detail-summary-acl-2026"),
-  ).toHaveClass("text-[12px]");
+  ).toHaveClass("sm:text-[12px]");
   expect(
     within(detailRow).getByRole("link", { name: /call for papers/i }),
   ).toHaveClass("rounded-full");
@@ -273,7 +274,7 @@ it("keeps expanded conference details fixed while the timeline scrolls independe
   expect(detailMetaCell).toHaveClass("left-0");
   expect(detailMetaCell).toHaveClass("z-10");
   expect(detailPanel).toHaveClass("sticky");
-  expect(detailPanel).toHaveClass("left-[196px]");
+  expect(detailPanel).toHaveStyle({ left: "calc(var(--timeline-meta-width) + 16px)" });
   expect(detailPanel).toHaveClass("z-20");
   expect(detailRow).not.toHaveClass("col-span-2");
 });

@@ -38,5 +38,6 @@ it("renders compact metadata with year suffix and ranking summary", () => {
 
   expect(screen.getByText(conferences[1]!.shortName)).toBeInTheDocument();
   expect(screen.getByText(String(conferences[1]!.year))).toBeInTheDocument();
-  expect(screen.getByText("AI · CCF A")).toBeInTheDocument();
+  expect(screen.getByText("AI")).toBeInTheDocument();
+  expect(screen.getByText("CCF A")).toBeInTheDocument();
 });
