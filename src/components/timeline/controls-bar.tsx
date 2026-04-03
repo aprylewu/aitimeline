@@ -85,6 +85,22 @@ function CloseIcon() {
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M2 3.5h10M2 7h10M2 10.5h10" />
+    </svg>
+  );
+}
+
+function GitHubIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.73 0 8.34c0 3.69 2.29 6.82 5.47 7.93.4.08.55-.18.55-.4 0-.2-.01-.86-.01-1.56-2.01.45-2.53-.51-2.69-.98-.09-.24-.48-.98-.82-1.18-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.84.72 1.28 1.87.92 2.33.7.07-.54.28-.92.5-1.13-1.78-.21-3.64-.92-3.64-4.09 0-.9.31-1.64.82-2.22-.08-.21-.36-1.06.08-2.2 0 0 .67-.22 2.2.85A7.3 7.3 0 0 1 8 4.46a7.3 7.3 0 0 1 2 .29c1.52-1.07 2.2-.85 2.2-.85.44 1.14.16 1.99.08 2.2.51.58.82 1.32.82 2.22 0 3.18-1.87 3.88-3.65 4.09.29.26.54.77.54 1.56 0 1.13-.01 2.04-.01 2.32 0 .22.14.49.55.4A8.35 8.35 0 0 0 16 8.34C16 3.73 12.42 0 8 0Z" />
+    </svg>
+  );
+}
+
 function getControlButtonClass(isActive: boolean) {
   return isActive
     ? "border-[var(--text-primary)] bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
@@ -129,7 +145,11 @@ export function ControlsBar({
   onThemeToggle,
 }: ControlsBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const filtersButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const desktopFiltersButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileFiltersButtonRef = useRef<HTMLButtonElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const popoverPanelRef = useRef<HTMLDivElement>(null);
   const milestonePopoverId = useId();
@@ -145,7 +165,8 @@ export function ControlsBar({
 
       if (
         popoverPanelRef.current?.contains(target) ||
-        filtersButtonRef.current?.contains(target)
+        desktopFiltersButtonRef.current?.contains(target) ||
+        mobileFiltersButtonRef.current?.contains(target)
       ) {
         return;
       }
@@ -161,6 +182,27 @@ export function ControlsBar({
   }, [filtersOpen]);
 
   useEffect(() => {
+    function handleClickOutside(event: PointerEvent) {
+      const target = event.target as Node;
+
+      if (
+        menuPanelRef.current?.contains(target) ||
+        menuButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setMenuOpen(false);
+    }
+
+    if (menuOpen) {
+      document.addEventListener("pointerdown", handleClickOutside);
+    }
+
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
+  }, [menuOpen]);
+
+  useEffect(() => {
     if (!filtersOpen) {
       return;
     }
@@ -171,7 +213,11 @@ export function ControlsBar({
       }
 
       setFiltersOpen(false);
-      filtersButtonRef.current?.focus();
+      (
+        mobileFiltersButtonRef.current?.offsetParent !== null
+          ? mobileFiltersButtonRef.current
+          : desktopFiltersButtonRef.current
+      )?.focus();
     }
 
     document.addEventListener("keydown", handleEscapeKey);
@@ -179,12 +225,35 @@ export function ControlsBar({
   }, [filtersOpen]);
 
   useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setMenuOpen(false);
+      menuButtonRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleEscapeKey);
+    return () => document.removeEventListener("keydown", handleEscapeKey);
+  }, [menuOpen]);
+
+  useEffect(() => {
     if (!filtersOpen) {
       return;
     }
 
     function syncPopoverPosition() {
-      const anchorRect = filtersButtonRef.current?.getBoundingClientRect();
+      const anchorButton =
+        mobileFiltersButtonRef.current &&
+        mobileFiltersButtonRef.current.offsetParent !== null
+          ? mobileFiltersButtonRef.current
+          : desktopFiltersButtonRef.current;
+      const anchorRect = anchorButton?.getBoundingClientRect();
 
       if (!anchorRect) {
         return;
@@ -222,7 +291,114 @@ export function ControlsBar({
   return (
     <div className="sticky top-0 z-40 border-b border-[var(--panel-border)] bg-[var(--controls-bg)] px-4 py-3 md:px-6">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-2.5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              aria-label="Open controls menu"
+              className={`timeline-control flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border ${getControlButtonClass(
+                menuOpen || hasActiveFilters || theme === "dark",
+              )}`}
+            >
+              <MenuIcon />
+            </button>
+            {menuOpen ? (
+              <div
+                ref={menuPanelRef}
+                role="menu"
+                aria-label="Mobile controls menu"
+                className="timeline-floating-surface absolute top-[66px] right-4 z-60 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-[var(--panel-border)] p-3 shadow-lg"
+              >
+                <div
+                  className="mb-3 flex items-center overflow-hidden rounded-lg border border-[var(--panel-border)]"
+                  role="group"
+                  aria-label="Range presets"
+                >
+                  {PRESETS.map((preset) => {
+                    const isActive = activePreset === preset;
+
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          onPresetSelect(preset);
+                          setMenuOpen(false);
+                        }}
+                        aria-pressed={isActive}
+                        className={`timeline-control relative h-10 flex-1 cursor-pointer border-r border-[var(--panel-border)] px-2 py-1.5 text-[11px] font-medium last:border-r-0 ${isActive ? "bg-[var(--surface-elevated)] text-[var(--text-primary)]" : "bg-[var(--chip-bg)] text-[var(--text-muted)] hover:bg-[var(--chip-active-bg)] hover:text-[var(--text-primary)]"}`}
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    ref={mobileFiltersButtonRef}
+                    type="button"
+                    onClick={() => {
+                      setFiltersOpen((open) => !open);
+                    }}
+                    aria-controls={milestonePopoverId}
+                    aria-expanded={filtersOpen}
+                    aria-haspopup="dialog"
+                    className={`timeline-control flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(
+                      filtersOpen || activeMilestoneFilterCount > 0,
+                    )}`}
+                  >
+                    <FilterIcon />
+                    Milestones
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasActiveFilters}
+                    onClick={() => {
+                      onClearFilters();
+                      setFiltersOpen(false);
+                      setMenuOpen(false);
+                    }}
+                    aria-label="Reset filters"
+                    className={`timeline-control flex h-10 items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getResetButtonClass(
+                      hasActiveFilters,
+                    )} ${hasActiveFilters ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    Reset
+                  </button>
+                  <a
+                    href="https://github.com/aprylewu/aitimeline#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className={`timeline-control flex h-10 items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(false)}`}
+                    aria-label="Open GitHub repository"
+                  >
+                    <GitHubIcon />
+                    GitHub
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onThemeToggle();
+                      setMenuOpen(false);
+                    }}
+                    aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+                    className={`timeline-control col-span-2 flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg border ${getControlButtonClass(
+                      theme === "dark",
+                    )}`}
+                  >
+                    {theme === "light" ? <MoonIcon /> : <SunIcon />}
+                    {theme === "light" ? "Dark mode" : "Light mode"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="relative min-w-0 flex-1">
             <input
               ref={inputRef}
@@ -250,7 +426,7 @@ export function ControlsBar({
               </kbd>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+          <div className="hidden flex-wrap items-center gap-2 sm:flex sm:flex-nowrap">
             <div
               className="flex items-center overflow-hidden rounded-lg border border-[var(--panel-border)]"
               role="group"
@@ -274,7 +450,7 @@ export function ControlsBar({
             </div>
             <div className="relative">
               <button
-                ref={filtersButtonRef}
+                ref={desktopFiltersButtonRef}
                 type="button"
                 onClick={() => setFiltersOpen((open) => !open)}
                 aria-controls={milestonePopoverId}
@@ -372,6 +548,16 @@ export function ControlsBar({
             >
               {theme === "light" ? <MoonIcon /> : <SunIcon />}
             </button>
+            <a
+              href="https://github.com/aprylewu/aitimeline#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(false)}`}
+              aria-label="Open GitHub repository"
+            >
+              <GitHubIcon />
+              GitHub
+            </a>
           </div>
         </div>
         {availableCategories.length > 0 ? (

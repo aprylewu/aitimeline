@@ -167,6 +167,19 @@ it("uses a horizontally scrollable surface without creating an inner vertical sc
   expect(surface).toHaveClass("overflow-y-hidden");
 });
 
+it("shows contribution guidance in the footer", () => {
+  render(
+    <TimelineBrowser
+      conferences={conferences}
+      now={new Date("2026-03-26T00:00:00Z")}
+    />,
+  );
+
+  expect(screen.getByText("Notes")).toBeInTheDocument();
+  expect(screen.getByText(/please open an issue/i)).toBeInTheDocument();
+  expect(screen.getByText(/send a pull request/i)).toBeInTheDocument();
+});
+
 it("shows the clear action for non-default preset and milestone filters", async () => {
   const user = userEvent.setup();
 
