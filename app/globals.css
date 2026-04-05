@@ -128,7 +128,9 @@ body {
 .timeline-shell-draggable {
   cursor: grab;
   overscroll-behavior-x: contain;
-  touch-action: pan-y;
+  /* pan-y alone blocks horizontal touch scrolling on the timeline surface */
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .timeline-control,
@@ -182,15 +184,11 @@ body {
 
 .timeline-meta-head,
 .timeline-meta-cell {
-  background: color-mix(in srgb, var(--surface-elevated) 72%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--floating-surface-bg);
 }
 
 .timeline-section-label {
-  background: color-mix(in srgb, var(--surface-elevated) 72%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--floating-surface-bg);
 }
 
 .timeline-meta-head,
@@ -198,28 +196,12 @@ body {
 .timeline-meta-cell {
   position: relative;
   overflow: visible;
-  isolation: isolate;
+  border-right: 1px solid var(--panel-border);
 }
 
 .timeline-meta-fixed {
   transform: translateX(var(--timeline-scroll-offset, 0px));
   will-change: transform;
-}
-
-.timeline-meta-head::after,
-.timeline-section-label::after,
-.timeline-meta-cell::after {
-  content: "";
-  position: absolute;
-  top: -1px;
-  right: -30px;
-  width: 30px;
-  height: calc(100% + 2px);
-  pointer-events: none;
-  z-index: 1;
-  background: color-mix(in srgb, var(--surface-elevated) 38%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .timeline-meta-cell {
@@ -230,11 +212,16 @@ body {
 
 .timeline-meta-cell:hover,
 .timeline-meta-cell:focus-within {
-  background: color-mix(in srgb, var(--surface-elevated) 96%, var(--accent-secondary) 4%);
+  background: color-mix(
+    in srgb,
+    var(--floating-surface-bg) 94%,
+    var(--accent-secondary) 6%
+  );
 }
 
 .timeline-axis,
-.timeline-row {
+.timeline-row,
+.timeline-section-divider {
   position: relative;
   background: color-mix(in srgb, var(--surface-bg) 80%, transparent);
 }
@@ -244,12 +231,12 @@ body {
 }
 
 .timeline-axis {
-  min-height: 68px;
+  min-height: 58px;
 }
 
 .timeline-axis-track {
   position: relative;
-  min-height: 44px;
+  min-height: 36px;
 }
 
 .timeline-axis-tick {
@@ -260,7 +247,7 @@ body {
 
 .timeline-axis-label {
   position: absolute;
-  top: 24px;
+  top: 18px;
   left: 0;
   width: max-content;
   transform: translateX(-50%);
@@ -286,7 +273,7 @@ body {
 }
 
 .timeline-row {
-  height: 72px;
+  height: 64px;
   transition: background-color 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -340,6 +327,53 @@ body {
   color: var(--accent-secondary);
 }
 
+.meta-shield-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 90%, var(--accent-secondary) 10%);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--surface-elevated) 94%, transparent) 0%,
+    color-mix(in srgb, var(--chip-bg) 100%, transparent) 55%,
+    color-mix(in srgb, var(--chip-bg) 88%, var(--accent-secondary) 6%) 100%
+  );
+  padding: 0.1rem 0.4rem 0.12rem;
+  font-family:
+    var(--font-geist-mono),
+    "SF Mono",
+    ui-monospace,
+    monospace;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 35%, transparent),
+    0 1px 1px color-mix(in srgb, var(--panel-border) 45%, transparent);
+}
+
+.meta-shield-badge--category {
+  border-color: color-mix(in srgb, var(--accent-secondary) 22%, var(--panel-border));
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--accent-secondary) 12%);
+}
+
+.meta-shield-badge__key {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.meta-shield-badge__value {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
 .conference-detail-card {
   transform: translateY(-50%);
   transform-origin: left center;
@@ -363,7 +397,7 @@ body {
   }
 
   .timeline-row {
-    height: 72px;
+    height: 60px;
   }
 }
 
@@ -397,10 +431,9 @@ body {
     border-right: none;
   }
 
-  .timeline-meta-head::after,
-  .timeline-section-label::after,
-  .timeline-meta-cell::after {
-    display: none;
+  .timeline-meta-head,
+  .timeline-section-label {
+    border-right: none;
   }
 
   .timeline-detail-meta-mobile-hidden {
@@ -415,6 +448,18 @@ body {
 
   .timeline-today-overlay {
     left: 0 !important;
+  }
+
+  .timeline-axis {
+    min-height: 0;
+  }
+
+  .timeline-axis-track {
+    min-height: 30px;
+  }
+
+  .timeline-axis-label {
+    top: 12px;
   }
 }
 

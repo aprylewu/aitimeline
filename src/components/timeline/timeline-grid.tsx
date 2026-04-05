@@ -515,18 +515,18 @@ function ConferenceDetailStrip({
   const rankingEntries = getRankingEntries(conference);
 
   return (
-    <div className="conference-inline-strip flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <div className="conference-inline-strip flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="min-w-0 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
           <span
             data-testid={`conference-detail-title-${conference.id}`}
-            className="text-[13px] font-medium leading-5 text-[var(--text-primary)]"
+            className="text-[13px] font-medium leading-snug text-[var(--text-primary)]"
           >
             {conference.title}
           </span>
           <span
             data-testid={`conference-detail-summary-${conference.id}`}
-            className="text-[12px] leading-5 text-[var(--text-muted)]"
+            className="text-[12px] leading-snug text-[var(--text-muted)]"
           >
             {getConferenceSummary(conference, viewerTimeZone)}
           </span>
@@ -537,31 +537,31 @@ function ConferenceDetailStrip({
             target="_blank"
             rel="noreferrer noopener"
             tabIndex={expanded ? 0 : -1}
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-5 py-2 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
+            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--surface-elevated)] px-4 py-1.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--accent-primary)] shadow-sm transition hover:border-[var(--accent-primary)] hover:bg-[var(--chip-bg)] hover:text-[var(--text-primary)]"
           >
             Call For Papers
           </a>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-5 text-[var(--text-muted)]">
+      <div
+        className="flex flex-wrap items-center gap-1.5 text-[10px] leading-tight"
+        data-testid={`conference-detail-badges-${conference.id}`}
+      >
+        <span className="meta-shield-badge meta-shield-badge--category">
+          {conference.category}
+        </span>
         {rankingEntries.length > 0 ? (
           rankingEntries.map(([key, value]) => (
-            <span
-              key={`${conference.id}-${key}`}
-              className="font-medium text-[var(--text-primary)]"
-            >
-              <span className="uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                {key}
-              </span>{" "}
-              {value}
+            <span key={`${conference.id}-${key}`} className="meta-shield-badge">
+              <span className="meta-shield-badge__key">{key}</span>
+              <span className="meta-shield-badge__value">{value}</span>
             </span>
           ))
         ) : (
-          <span className="font-medium text-[var(--text-muted)]">Unranked</span>
+          <span className="meta-shield-badge text-[var(--text-muted)]">
+            Unranked
+          </span>
         )}
-        <span className="font-medium uppercase tracking-[0.08em]">
-          {conference.category}
-        </span>
       </div>
       {conference.detailNote ? (
         <p
@@ -577,7 +577,7 @@ function ConferenceDetailStrip({
 
 function getDetailRowStateClass(isExpanded: boolean) {
   return isExpanded
-    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60"
+    ? "border-[var(--panel-border)] bg-[var(--floating-surface-bg)]"
     : "pointer-events-none border-transparent bg-transparent";
 }
 
@@ -587,7 +587,7 @@ function getDetailPanelClass(isExpanded: boolean) {
 
 function getDetailMetaCellClass(isExpanded: boolean) {
   return isExpanded
-    ? "border-[var(--panel-border)] bg-[var(--surface-bg)]/60 opacity-100"
+    ? "border-[var(--panel-border)] bg-[var(--floating-surface-bg)] opacity-100"
     : "pointer-events-none border-transparent bg-transparent opacity-0";
 }
 
@@ -689,7 +689,7 @@ function ConferenceDetailRow({
   }, []);
 
   return (
-    <>
+    <div className="timeline-conference-detail-group min-[901px]:contents max-[900px]:order-2">
       <div
         data-testid={`conference-detail-meta-${conference.id}`}
         aria-hidden={!expanded}
@@ -713,7 +713,7 @@ function ConferenceDetailRow({
         <div
           ref={contentRef}
           data-testid={`conference-detail-content-${conference.id}`}
-          className="px-4 py-2.5"
+          className="px-4 py-2"
         >
           <div
             data-testid={`conference-detail-panel-${conference.id}`}
@@ -727,7 +727,7 @@ function ConferenceDetailRow({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -807,7 +807,7 @@ const TimelineMarker = memo(function TimelineMarker({
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
       onBlur={() => setIsHovered(false)}
-      className={`timeline-marker absolute top-[16px] flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full ${
+      className={`timeline-marker absolute top-[16px] max-[900px]:top-[14px] flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full ${
         isHovered ? "z-30" : ""
       }`}
       style={markerStyle}
@@ -925,9 +925,9 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
   }, []);
 
   return (
-    <Fragment>
+    <div className="timeline-conference-stack max-[900px]:flex max-[900px]:w-full max-[900px]:flex-col min-[901px]:contents">
       <div
-        className="timeline-meta-cell timeline-meta-fixed timeline-meta-mobile-stack relative z-10 border-b border-[var(--panel-border)] px-2.5 py-2 md:px-3.5"
+        className="timeline-meta-cell timeline-meta-fixed timeline-meta-mobile-stack relative z-10 max-[900px]:order-1 border-b border-[var(--panel-border)] px-2.5 py-1.5 md:px-3.5"
       >
         <button
           ref={triggerRef}
@@ -978,7 +978,7 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
             hoverCooldown ? "conference-trigger--hover-cooldown" : ""
           } ${
             isTriggerHovered ? "conference-trigger--hovered" : ""
-          } -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-center rounded-lg border border-transparent px-2 py-1.5 text-left outline-none transition-[border-color,background-color,box-shadow,color] duration-150`}
+          } -mx-2 flex min-h-10 w-[calc(100%+1rem)] cursor-pointer items-center rounded-lg border border-transparent px-2 py-1 text-left outline-none transition-[border-color,background-color,box-shadow,color] duration-150`}
         >
           <ConferenceMetaColumn
             conference={conference}
@@ -988,15 +988,15 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
           />
         </button>
       </div>
-      <div className="timeline-row relative border-b border-[var(--panel-border)] px-4">
+      <div className="timeline-row relative max-[900px]:order-3 border-b border-[var(--panel-border)] px-4">
         <div className="timeline-row-grid pointer-events-none absolute inset-0" />
-        <div className="absolute top-[31px] left-0 right-0 h-px bg-[var(--path-baseline)]" />
+        <div className="absolute top-[31px] max-[900px]:top-[29px] left-0 right-0 h-px bg-[var(--path-baseline)]" />
         {clippedPrimaryPath ? (
           <div
             data-testid={`primary-path-${conference.id}`}
             data-path-start={clippedPrimaryPath.startType}
             data-path-end={clippedPrimaryPath.endType}
-            className="absolute top-[30px] h-[4px] rounded-full bg-[var(--path-track)]"
+            className="absolute top-[30px] max-[900px]:top-[28px] h-[4px] rounded-full bg-[var(--path-track)]"
             style={{
               left: `${clippedPrimaryPath.left}%`,
               width: `${clippedPrimaryPath.width}%`,
@@ -1033,7 +1033,7 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
               data-testid={`range-${conference.id}-${segment.key}`}
               data-tone={segment.tone}
               key={`${conference.id}-${segment.key}`}
-              className={`absolute top-[30px] h-[4px] rounded-full ${getToneClass(segment.tone, "range")}`}
+              className={`absolute top-[30px] max-[900px]:top-[28px] h-[4px] rounded-full ${getToneClass(segment.tone, "range")}`}
               style={{
                 left: `${left}%`,
                 width: `${right - left}%`,
@@ -1067,7 +1067,7 @@ const TimelineConferenceRow = memo(function TimelineConferenceRow({
         expanded={isExpanded}
         viewerTimeZone={viewerTimeZone}
       />
-    </Fragment>
+    </div>
   );
 });
 
@@ -1119,10 +1119,10 @@ export const TimelineGrid = memo(function TimelineGrid({
       <div
         className="timeline-grid-layout grid"
       >
-        <div className="timeline-meta-head timeline-meta-fixed z-10 border-b border-[var(--panel-border)] px-3 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
+        <div className="timeline-meta-head timeline-meta-fixed z-10 border-b border-[var(--panel-border)] px-3 py-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] max-[900px]:py-2 md:px-4">
           Venue
         </div>
-        <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-3">
+        <div className="timeline-axis border-b border-[var(--panel-border)] px-4 py-2.5 max-[900px]:px-3 max-[900px]:py-1.5">
           <div className="timeline-axis-track">
             {visibleTickIndices.map((index) => {
               const tick = ticks[index]!;
@@ -1152,7 +1152,7 @@ export const TimelineGrid = memo(function TimelineGrid({
 
           return (
             <Fragment key={section.id}>
-              <div className="timeline-section-label timeline-meta-fixed z-10 border-b border-[var(--panel-border)] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
+              <div className="timeline-section-label timeline-meta-fixed z-10 border-b border-[var(--panel-border)] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:px-4">
                 {section.label}
               </div>
               <div className="timeline-section-divider border-b border-[var(--panel-border)]" />

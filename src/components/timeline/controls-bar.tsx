@@ -101,6 +101,25 @@ function GitHubIcon() {
   );
 }
 
+function ResetIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2.5 6.5A6 6 0 0 1 8 2.5a6 6 0 0 1 5.5 3.7" />
+      <path d="M2.5 6.5V3h3.5" />
+    </svg>
+  );
+}
+
 function getControlButtonClass(isActive: boolean) {
   return isActive
     ? "border-[var(--text-primary)] bg-[var(--chip-active-bg)] text-[var(--text-primary)]"
@@ -337,7 +356,11 @@ export function ControlsBar({
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div
+                  className="flex min-w-0 gap-1.5"
+                  role="group"
+                  aria-label="Quick actions"
+                >
                   <button
                     ref={mobileFiltersButtonRef}
                     type="button"
@@ -347,12 +370,19 @@ export function ControlsBar({
                     aria-controls={milestonePopoverId}
                     aria-expanded={filtersOpen}
                     aria-haspopup="dialog"
-                    className={`timeline-control flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(
+                    aria-label="Milestones"
+                    className={`timeline-control relative flex min-h-0 min-w-0 flex-1 basis-0 cursor-pointer items-center justify-center rounded-lg border py-2 ${getControlButtonClass(
                       filtersOpen || activeMilestoneFilterCount > 0,
                     )}`}
                   >
-                    <FilterIcon />
-                    Milestones
+                    <span className="relative inline-flex">
+                      <FilterIcon />
+                      {activeMilestoneFilterCount > 0 ? (
+                        <span className="absolute -top-1.5 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[var(--text-primary)] px-0.5 text-[9px] font-semibold leading-none text-[var(--page-bg)]">
+                          {activeMilestoneFilterCount}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -363,11 +393,11 @@ export function ControlsBar({
                       setMenuOpen(false);
                     }}
                     aria-label="Reset filters"
-                    className={`timeline-control flex h-10 items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getResetButtonClass(
+                    className={`timeline-control flex min-h-0 min-w-0 flex-1 basis-0 items-center justify-center rounded-lg border py-2 ${getResetButtonClass(
                       hasActiveFilters,
                     )} ${hasActiveFilters ? "cursor-pointer" : "cursor-default"}`}
                   >
-                    Reset
+                    <ResetIcon />
                   </button>
                   <a
                     href="https://github.com/aprylewu/aitimeline#"
@@ -375,11 +405,10 @@ export function ControlsBar({
                     rel="noopener noreferrer"
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
-                    className={`timeline-control flex h-10 items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(false)}`}
+                    className={`timeline-control flex min-h-0 min-w-0 flex-1 basis-0 items-center justify-center rounded-lg border py-2 ${getControlButtonClass(false)}`}
                     aria-label="Open GitHub repository"
                   >
                     <GitHubIcon />
-                    GitHub
                   </a>
                   <button
                     type="button"
@@ -388,12 +417,11 @@ export function ControlsBar({
                       setMenuOpen(false);
                     }}
                     aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-                    className={`timeline-control col-span-2 flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg border ${getControlButtonClass(
+                    className={`timeline-control flex min-h-0 min-w-0 flex-1 basis-0 cursor-pointer items-center justify-center rounded-lg border py-2 ${getControlButtonClass(
                       theme === "dark",
                     )}`}
                   >
                     {theme === "light" ? <MoonIcon /> : <SunIcon />}
-                    {theme === "light" ? "Dark mode" : "Light mode"}
                   </button>
                 </div>
               </div>
@@ -552,11 +580,10 @@ export function ControlsBar({
               href="https://github.com/aprylewu/aitimeline#"
               target="_blank"
               rel="noopener noreferrer"
-              className={`timeline-control flex h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium ${getControlButtonClass(false)}`}
+              className={`timeline-control flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border ${getControlButtonClass(false)}`}
               aria-label="Open GitHub repository"
             >
               <GitHubIcon />
-              GitHub
             </a>
           </div>
         </div>

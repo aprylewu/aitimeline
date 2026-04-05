@@ -33,10 +33,12 @@ it("uses wrapping-safe classes for long titles and locations", () => {
   expect(screen.getByText(conference.location)).toHaveClass("break-words");
 });
 
-it("renders compact metadata with year suffix and ranking summary", () => {
+it("renders compact metadata with year suffix and shield-style badges", () => {
   render(<ConferenceMetaColumn conference={conferences[1]!} compact />);
 
   expect(screen.getByText(conferences[1]!.shortName)).toBeInTheDocument();
   expect(screen.getByText(String(conferences[1]!.year))).toBeInTheDocument();
-  expect(screen.getByText("AI · CCF A")).toBeInTheDocument();
+  expect(screen.getByTestId(`conference-meta-badges-${conferences[1]!.id}`)).toBeInTheDocument();
+  expect(screen.getByText(conferences[1]!.category)).toBeInTheDocument();
+  expect(screen.getByText(/ccf/i)).toBeInTheDocument();
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fetchCcfddl } from "./fetch-ccfddl";
+import { fetchCcfddl, normalizeCcfTimezone } from "./fetch-ccfddl";
 
 const MOCK_TREE = {
   tree: [
@@ -49,6 +49,32 @@ const MOCK_SIGMOD_YAML = `
 
 beforeEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("normalizeCcfTimezone", () => {
+  it("maps AoE aliases to the milestone AoE label (not UTC)", () => {
+    expect(normalizeCcfTimezone("AoE")).toBe("AoE");
+    expect(normalizeCcfTimezone("aoe")).toBe("AoE");
+    expect(normalizeCcfTimezone("UTC-12")).toBe("AoE");
+  });
+
+  it("maps UTC and GMT synonyms to UTC", () => {
+    expect(normalizeCcfTimezone("UTC")).toBe("UTC");
+    expect(normalizeCcfTimezone("UTC+0")).toBe("UTC");
+    expect(normalizeCcfTimezone("GMT")).toBe("UTC");
+  });
+
+  it("maps fixed UTC±N offsets to IANA Etc/GMT* zones", () => {
+    expect(normalizeCcfTimezone("UTC-7")).toBe("Etc/GMT+7");
+    expect(normalizeCcfTimezone("UTC-8")).toBe("Etc/GMT+8");
+    expect(normalizeCcfTimezone("UTC+8")).toBe("Etc/GMT-8");
+  });
+
+  it("passes through valid IANA timezones", () => {
+    expect(normalizeCcfTimezone("America/Los_Angeles")).toBe(
+      "America/Los_Angeles",
+    );
+  });
 });
 
 describe("fetchCcfddl", () => {

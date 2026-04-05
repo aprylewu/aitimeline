@@ -8,22 +8,6 @@ interface ConferenceMetaColumnProps {
   hovered?: boolean;
 }
 
-function getCompactRankingLabel(conference: Conference) {
-  if (conference.rankings.ccf) {
-    return `CCF ${conference.rankings.ccf}`;
-  }
-
-  if (conference.rankings.core) {
-    return `CORE ${conference.rankings.core}`;
-  }
-
-  if (conference.rankings.thcpl) {
-    return `THCPL ${conference.rankings.thcpl}`;
-  }
-
-  return null;
-}
-
 export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
   conference,
   compact = false,
@@ -33,9 +17,6 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
   const rankingEntries = Object.entries(conference.rankings).filter(
     ([, value]) => value,
   );
-  const compactMeta = [conference.category, getCompactRankingLabel(conference)]
-    .filter(Boolean)
-    .join(" · ");
 
   if (compact) {
     return (
@@ -52,11 +33,26 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
               {conference.year}
             </span>
           </p>
-          {compactMeta ? (
-            <p className="mt-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              {compactMeta}
-            </p>
-          ) : null}
+          <div
+            className="mt-0.5 flex flex-wrap items-center gap-1"
+            data-testid={`conference-meta-badges-${conference.id}`}
+          >
+            <span className="meta-shield-badge meta-shield-badge--category">
+              {conference.category}
+            </span>
+            {rankingEntries.length > 0 ? (
+              rankingEntries.map(([key, value]) => (
+                <span key={key} className="meta-shield-badge">
+                  <span className="meta-shield-badge__key">{key}</span>
+                  <span className="meta-shield-badge__value">{value}</span>
+                </span>
+              ))
+            ) : (
+              <span className="meta-shield-badge text-[var(--text-muted)]">
+                Unranked
+              </span>
+            )}
+          </div>
         </div>
         <span
           data-testid={`conference-trigger-arrow-${conference.id}`}
@@ -89,32 +85,35 @@ export const ConferenceMetaColumn = memo(function ConferenceMetaColumn({
     <div className="min-w-0">
       <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {conference.year}
-        {" · "}
-        {conference.category}
       </p>
+      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        <span className="meta-shield-badge meta-shield-badge--category text-[9px]">
+          {conference.category}
+        </span>
+        {rankingEntries.length > 0 ? (
+          rankingEntries.map(([key, value]) => (
+            <span key={key} className="meta-shield-badge text-[9px]">
+              <span className="meta-shield-badge__key">{key}</span>
+              <span className="meta-shield-badge__value">{value}</span>
+            </span>
+          ))
+        ) : (
+          <span className="meta-shield-badge text-[9px] text-[var(--text-muted)]">
+            Unranked
+          </span>
+        )}
+      </div>
       <a
         href={conference.website}
         target="_blank"
         rel="noreferrer noopener"
-        className="conference-detail-link mt-1 inline-block cursor-pointer break-words rounded-sm text-sm font-medium tracking-tight text-[var(--text-primary)] hover:text-[var(--text-muted)]"
+        className="conference-detail-link mt-1.5 inline-block cursor-pointer break-words rounded-sm text-sm font-medium tracking-tight text-[var(--text-primary)] hover:text-[var(--text-muted)]"
       >
         {conference.shortName}
       </a>
       <p className="mt-1 break-words text-xs text-[var(--text-muted)]">
         {conference.title}
       </p>
-      {rankingEntries.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {rankingEntries.map(([key, value]) => (
-            <span
-              key={key}
-              className="rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)] px-2 py-0.5 font-mono text-[10px] font-medium uppercase text-[var(--text-primary)]"
-            >
-              {key} {value}
-            </span>
-          ))}
-        </div>
-      ) : null}
       <p className="mt-2 break-words text-xs text-[var(--text-muted)]">
         {conference.location}
       </p>

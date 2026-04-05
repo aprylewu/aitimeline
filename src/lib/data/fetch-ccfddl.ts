@@ -10,9 +10,65 @@ function extractDate(datetime: string): string {
   return datetime.split(" ")[0];
 }
 
-function normalizeCcfTimezone(tz: string): string {
-  if (tz === "UTC-12") {
+function isValidIanaTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ccfddl YAML uses mixed labels: `AoE`, `UTC-12`, `UTC+0`, `UTC-8`, plain `UTC`, etc.
+ * Previously anything other than `UTC-12` was forced to `UTC`, so real `AoE` rows were
+ * interpreted as UTC end-of-day (≈ 08:00 next calendar day in China) instead of AoE.
+ */
+export function normalizeCcfTimezone(raw: string): string {
+  const tz = raw.trim();
+  const upper = tz.toUpperCase();
+
+  if (upper === "AOE" || upper === "UTC-12") {
     return "AoE";
+  }
+
+  if (
+    upper === "UTC" ||
+    upper === "UTC+0" ||
+    upper === "UTC-0" ||
+    upper === "GMT" ||
+    upper === "GMT+0" ||
+    upper === "GMT-0"
+  ) {
+    return "UTC";
+  }
+
+  const utcOffset = tz.match(/^UTC([+-])(\d{1,2})(?::(\d{2}))?$/i);
+  if (utcOffset) {
+    const minutes = utcOffset[3] ? Number.parseInt(utcOffset[3], 10) : 0;
+    if (minutes === 0) {
+      const inverted = utcOffset[1] === "-" ? "+" : "-";
+      const iana = `Etc/GMT${inverted}${utcOffset[2]}`;
+      if (isValidIanaTimeZone(iana)) {
+        return iana;
+      }
+    }
+  }
+
+  const gmtOffset = tz.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/i);
+  if (gmtOffset) {
+    const minutes = gmtOffset[3] ? Number.parseInt(gmtOffset[3], 10) : 0;
+    if (minutes === 0) {
+      const inverted = gmtOffset[1] === "-" ? "+" : "-";
+      const iana = `Etc/GMT${inverted}${gmtOffset[2]}`;
+      if (isValidIanaTimeZone(iana)) {
+        return iana;
+      }
+    }
+  }
+
+  if (isValidIanaTimeZone(tz)) {
+    return tz;
   }
 
   return "UTC";
