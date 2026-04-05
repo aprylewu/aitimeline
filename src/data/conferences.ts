@@ -399,7 +399,7 @@ export const conferences: Conference[] = [
         type: "fullPaper",
         label: "ARR submission deadline",
         dateStart: "2026-01-05",
-        timezone: "UTC",
+        timezone: "AoE",
         importance: "primary",
       },
       {
@@ -407,7 +407,7 @@ export const conferences: Conference[] = [
         type: "rebuttalStart",
         label: "ARR author response opens",
         dateStart: "2026-02-15",
-        timezone: "UTC",
+        timezone: "AoE",
         importance: "primary",
       },
       {
@@ -415,7 +415,7 @@ export const conferences: Conference[] = [
         type: "rebuttalEnd",
         label: "ARR author response closes",
         dateStart: "2026-02-21",
-        timezone: "UTC",
+        timezone: "AoE",
         importance: "primary",
       },
       {
@@ -423,7 +423,7 @@ export const conferences: Conference[] = [
         type: "notification",
         label: "Acceptance notification",
         dateStart: "2026-04-04",
-        timezone: "UTC",
+        timezone: "AoE",
         importance: "primary",
       },
       {
@@ -431,7 +431,7 @@ export const conferences: Conference[] = [
         type: "cameraReady",
         label: "Camera-ready",
         dateStart: "2026-04-19",
-        timezone: "UTC",
+        timezone: "AoE",
         importance: "secondary",
       },
       {
