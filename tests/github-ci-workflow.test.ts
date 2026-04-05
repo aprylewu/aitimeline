@@ -12,6 +12,9 @@ describe("GitHub CI workflow", () => {
     expect(workflow).toContain("push:");
     expect(workflow).toContain("branches: [main]");
     expect(workflow).toContain("npm ci");
+    expect(workflow).toContain(`- name: Run tests
+        timeout-minutes: 15
+        run: npm run test -- --run`);
     expect(workflow).toContain("npm run test -- --run");
     expect(workflow).toContain("npm run lint");
     expect(workflow).toContain("npm run build");
