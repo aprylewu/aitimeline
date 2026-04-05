@@ -177,10 +177,13 @@ it("clicking a conference trigger restores the older compact inline detail strip
   expect(
     within(detailRow).getByText(/Jul 26-31, 2026, San Diego, United States/i),
   ).toBeInTheDocument();
-  expect(detailRow).toHaveTextContent(/ccf\s+A/i);
-  expect(detailRow).toHaveTextContent(/core\s+A\*/i);
-  expect(detailRow).toHaveTextContent(/thcpl\s+A/i);
-  expect(within(detailRow).getByText(/^AI$/i)).toBeInTheDocument();
+  const detailBadges = within(detailRow).getByTestId(
+    "conference-detail-badges-acl-2026",
+  );
+  expect(detailBadges).toHaveTextContent(/ccf/i);
+  expect(detailBadges).toHaveTextContent(/core/i);
+  expect(detailBadges).toHaveTextContent(/thcpl/i);
+  expect(within(detailBadges).getByText(/^AI$/i)).toBeInTheDocument();
   expect(
     within(detailRow).getByTestId("conference-detail-title-acl-2026"),
   ).toHaveClass("text-[13px]");

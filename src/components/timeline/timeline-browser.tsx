@@ -348,6 +348,11 @@ export function TimelineBrowser({
       return;
     }
 
+    // Touch uses native overflow-x scrolling; preventDefault + capture breaks it.
+    if (event.pointerType === "touch") {
+      return;
+    }
+
     const target = event.target as HTMLElement;
 
     if (target.closest("button, input, a")) {
